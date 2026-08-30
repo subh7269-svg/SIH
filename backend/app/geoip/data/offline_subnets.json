@@ -1,0 +1,17 @@
+[
+  {"cidr": "1.1.1.0/24", "country": "AU", "country_name": "Australia", "asn": "AS13335", "org": "Cloudflare Inc"},
+  {"cidr": "8.8.8.0/24", "country": "US", "country_name": "United States", "asn": "AS15169", "org": "Google LLC"},
+  {"cidr": "45.33.0.0/16", "country": "US", "country_name": "United States", "asn": "AS63949", "org": "Linode LLC"},
+  {"cidr": "104.16.0.0/12", "country": "US", "country_name": "United States", "asn": "AS13335", "org": "Cloudflare Inc"},
+  {"cidr": "185.220.101.0/24", "country": "DE", "country_name": "Germany", "asn": "AS200052", "org": "Zwiebelfreunde e.V."},
+  {"cidr": "185.195.0.0/16", "country": "NL", "country_name": "Netherlands", "asn": "AS49981", "org": "WorldStream B.V."},
+  {"cidr": "194.26.29.0/24", "country": "RU", "country_name": "Russia", "asn": "AS48282", "org": "Hostkey B.V."},
+  {"cidr": "103.21.244.0/22", "country": "IN", "country_name": "India", "asn": "AS13335", "org": "Cloudflare India"},
+  {"cidr": "116.202.0.0/16", "country": "DE", "country_name": "Germany", "asn": "AS24940", "org": "Hetzner Online GmbH"},
+  {"cidr": "198.51.100.0/24", "country": "CH", "country_name": "Switzerland", "asn": "AS12345", "org": "Swiss Privacy Relays"},
+  {"cidr": "203.0.113.0/24", "country": "SG", "country_name": "Singapore", "asn": "AS55555", "org": "SingTel Relays"},
+  {"cidr": "192.0.2.0/24", "country": "PA", "country_name": "Panama", "asn": "AS99999", "org": "Offshore Routing Corp"},
+  {"cidr": "172.67.0.0/16", "country": "US", "country_name": "United States", "asn": "AS13335", "org": "Cloudflare Inc"},
+  {"cidr": "149.154.160.0/20", "country": "NL", "country_name": "Netherlands", "asn": "AS62041", "org": "Telegram Messenger Inc"},
+  {"cidr": "91.108.4.0/22", "country": "NL", "country_name": "Netherlands", "asn": "AS62041", "org": "Telegram Messenger Inc"}
+]

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Optional for Production; SQLite is also embedded for zero-setup)
+  postgres:
+    image: postgres:16-alpine
+    container_name: tracex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tracex
+      POSTGRES_USER: tracex_user
+      POSTGRES_PASSWORD: tracex_secure_offline_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracex_user -d tracex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # TraceX Monolith (FastAPI + React Production Bundle)
+  tracex-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tracex-platform
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql://tracex_user:tracex_secure_offline_password_2026@postgres:5432/tracex
+      JWT_SECRET: tracex_investigative_secret_key_sih2026_offline_security
+      UPLOAD_MAX_SIZE_MB: 100
+    ports:
+      - "8000:8000"
+    volumes:
+      - tracex_data:/app/data
+      - tracex_models:/app/ml/artifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+  tracex_data:
+    driver: local
+  tracex_models:
+    driver: local
