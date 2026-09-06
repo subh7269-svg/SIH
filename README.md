@@ -1,4 +1,4 @@
-# TraceX — AI-Powered Bitcoin Transaction Investigation & Risk Intelligence Platform
+# LeadForge — AI-Powered Bitcoin Transaction Investigation & Risk Intelligence Platform
 
 [![Smart India Hackathon 2026](https://img.shields.io/badge/SIH-2026%20Problem%20SIH26146-10B981?style=for-the-badge)](https://sih.gov.in)
 [![Offline Ready](https://img.shields.io/badge/Mode-100%25%20Offline%20First-06B6D4?style=for-the-badge)](OFFLINE_SETUP.md)
@@ -7,16 +7,16 @@
 [![Tests Passing](https://img.shields.io/badge/Tests-16%2F16%20Passing-10B981?style=for-the-badge)](backend/tests/)
 
 > **IMPORTANT FORENSIC & ETHICAL NOTICE**:  
-> TraceX is an investigative analytics and anomaly-detection system. It identifies anomalous entities and generates prioritized investigative leads based on available Bitcoin network and blockchain metadata.  
-> **TraceX does NOT claim to prove criminal guilt, establish definitive wallet ownership from network IP observations, or replace human investigator judgment.**
+> LeadForge is an investigative analytics and anomaly-detection system. It identifies anomalous entities and generates prioritized investigative leads based on available Bitcoin network and blockchain metadata.  
+> **LeadForge does NOT claim to prove criminal guilt, establish definitive wallet ownership from network IP observations, or replace human investigator judgment.**
 
 ---
 
 ## 1. Executive Summary
 
-TraceX addresses **Smart India Hackathon 2026 Problem Statement SIH26146**. It is an **offline Linux-compatible investigative intelligence platform** designed for cybersecurity analysts, forensic accountants, and law enforcement agencies.
+LeadForge addresses **Smart India Hackathon 2026 Problem Statement SIH26146**. It is an **offline Linux-compatible investigative intelligence platform** designed for cybersecurity analysts, forensic accountants, and law enforcement agencies.
 
-### What TraceX Does:
+### What LeadForge Does:
 1. **Bulk Ingestion**: Streams and parses bulk Bitcoin transaction and P2P network metadata in **CSV, JSON, and XML** formats.
 2. **Offline GeoIP & ASN Resolution**: Local in-memory subnet classification mapping relay IPs to Countries and Autonomous System Numbers without external network calls.
 3. **Multi-Layer Correlation**: Correlates blockchain-layer transactions (TXID, inputs, outputs, amounts, fees, scripts) with network-layer wire broadcast observations (IP, port, ASN, GeoIP) while preserving provenance.
@@ -61,7 +61,7 @@ npm install
 cd ..
 ```
 
-### Step 3: Launch TraceX
+### Step 3: Launch LeadForge
 ```bash
 # Windows
 scripts\run_local.bat
@@ -80,7 +80,7 @@ chmod +x scripts/run_local.sh
 
 1. Open `http://localhost:5173`.
 2. Click the glowing **"Run 1-Click SIH Demo"** button in the top navigation bar.
-3. TraceX will:
+3. LeadForge will:
    - Ingest the synthetic benchmark dataset.
    - Run the offline GeoIP correlator.
    - Build the heterogeneous entity graph.
@@ -103,7 +103,7 @@ Access the application at `http://localhost:8000`.
 
 ## 6. Automated Test Suite
 
-TraceX includes comprehensive unit and integration tests covering ingestion, parsing, correlation, feature extraction, ML models, graph queries, and REST APIs:
+LeadForge includes comprehensive unit and integration tests covering ingestion, parsing, correlation, feature extraction, ML models, graph queries, and REST APIs:
 
 ```bash
 python -m pytest backend/tests -v
@@ -161,7 +161,7 @@ SIH/
 ## 8. Limitations & Ethical Considerations
 
 1. **Synthetic vs Real-World Distribution**: This prototype uses synthetic benchmark datasets modeled on Bitcoin P2P and transaction structures. Real-world darknet or mixer patterns may require larger parameter tuning.
-2. **Network Observation vs Ownership**: An IP address observed broadcasting a transaction may be a relay node, VPN, or Tor exit. TraceX records this as broadcast provenance, not proof of wallet ownership.
+2. **Network Observation vs Ownership**: An IP address observed broadcasting a transaction may be a relay node, VPN, or Tor exit. LeadForge records this as broadcast provenance, not proof of wallet ownership.
 3. **Anomaly ≠ Crime**: An outlier score indicates statistical deviation from baseline traffic, serving as a prioritized lead for human investigator review.
 
 ---
