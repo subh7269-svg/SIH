@@ -9,7 +9,7 @@ from backend.app.models.dataset import Dataset
 from backend.app.models.transaction import Transaction, TransactionInput, TransactionOutput, IPObservation
 from backend.app.models.entity import Wallet
 from backend.app.ingestion.validation import validate_record
-from backend.app.ingestion.normalizer import normalize_record
+from backend.app.ingestion.normalizer import normalize_record, to_utc
 from backend.app.ingestion.parsers import parse_csv_stream, parse_json_stream, parse_xml_stream
 from backend.app.ingestion.quality import DataQualityAnalyzer
 from backend.app.core.errors import DatasetProcessingError, InvalidFileFormatError
@@ -172,8 +172,20 @@ def process_dataset_stream(
         for addr, meta in wallet_map.items():
             if addr in existing_wallets:
                 w = existing_wallets[addr]
-                w.first_seen = min(w.first_seen, meta["first_seen"])
-                w.last_seen = max(w.last_seen, meta["last_seen"])
+                w_first = to_utc(w.first_seen)
+                m_first = to_utc(meta["first_seen"])
+                if w_first and m_first:
+                    w.first_seen = min(w_first, m_first)
+                elif m_first:
+                    w.first_seen = m_first
+
+                w_last = to_utc(w.last_seen)
+                m_last = to_utc(meta["last_seen"])
+                if w_last and m_last:
+                    w.last_seen = max(w_last, m_last)
+                elif m_last:
+                    w.last_seen = m_last
+
                 w.total_sent += meta["sent"]
                 w.total_received += meta["received"]
                 w.tx_count += meta["tx_count"]

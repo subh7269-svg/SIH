@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+from datetime import timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -184,8 +185,8 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
             risk_score=0,
             anomaly_score=0.0,
             severity="LOW",
-            first_seen=min([ipo.timestamp for ipo in ip_obs_list]),
-            last_seen=max([ipo.timestamp for ipo in ip_obs_list]),
+            first_seen=min([ipo.timestamp.replace(tzinfo=timezone.utc) if ipo.timestamp.tzinfo is None else ipo.timestamp for ipo in ip_obs_list]) if ip_obs_list else None,
+            last_seen=max([ipo.timestamp.replace(tzinfo=timezone.utc) if ipo.timestamp.tzinfo is None else ipo.timestamp for ipo in ip_obs_list]) if ip_obs_list else None,
             total_volume_btc=0.0,
             transaction_count=len(related_txids),
             unique_counterparties=0,

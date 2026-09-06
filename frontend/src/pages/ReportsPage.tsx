@@ -160,7 +160,7 @@ export const ReportsPage: React.FC = () => {
             <div className="border-b border-slate-800 pb-4 flex justify-between items-start">
               <div>
                 <span className="text-[10px] text-cyber-emerald uppercase font-bold tracking-widest block">
-                  TRACEX FORENSIC INTELLIGENCE BRIEF
+                  LEADFORGE FORENSIC INTELLIGENCE BRIEF
                 </span>
                 <h2 className="text-lg font-bold text-slate-100 mt-1">{generatedReport.title}</h2>
                 <p className="text-slate-400 text-[11px] mt-0.5">

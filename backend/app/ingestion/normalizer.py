@@ -1,6 +1,6 @@
 import datetime
 from datetime import timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from dateutil import parser as dt_parser
 from backend.app.geoip.offline_lookup import offline_geoip
 
@@ -23,6 +23,11 @@ def normalize_timestamp(val: Any) -> datetime.datetime:
         except Exception:
             return datetime.datetime.now(timezone.utc)
     return datetime.datetime.now(timezone.utc)
+
+def to_utc(val: Any) -> Optional[datetime.datetime]:
+    if val is None:
+        return None
+    return normalize_timestamp(val)
 
 def normalize_record(raw_record: Dict[str, Any]) -> Dict[str, Any]:
     """

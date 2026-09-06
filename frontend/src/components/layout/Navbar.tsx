@@ -82,11 +82,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onDemoSuccess }) => {
         {/* Investigator Profile */}
         <div className="flex items-center gap-2 pl-3 border-l border-slate-800 text-xs">
           <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-mono font-bold">
-            TX
+            LF
           </div>
           <div className="hidden md:block">
             <p className="font-medium text-slate-200 text-[11px]">Lead Analyst</p>
-            <p className="text-[10px] text-slate-500 font-mono">TX-9041</p>
+            <p className="text-[10px] text-slate-500 font-mono">LF-9041</p>
           </div>
         </div>
       </div>

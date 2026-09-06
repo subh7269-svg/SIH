@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import pandas as pd
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -136,7 +137,11 @@ def extract_wallet_features_from_db(db: Session, dataset_id: str = None) -> Tupl
         net_flow = in_tot - out_tot
 
         # Temporal dynamics
-        timestamps = sorted(data["timestamps"])
+        timestamps = sorted([
+            (t.replace(tzinfo=timezone.utc) if (isinstance(t, datetime) and t.tzinfo is None) else t)
+            for t in data["timestamps"]
+            if t is not None
+        ])
         if len(timestamps) > 1:
             time_diffs = [(timestamps[i] - timestamps[i - 1]).total_seconds() for i in range(1, len(timestamps))]
             avg_time_between_sec = float(np.mean(time_diffs))

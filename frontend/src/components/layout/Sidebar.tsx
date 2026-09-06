@@ -36,7 +36,7 @@ export const Sidebar: React.FC = () => {
         </div>
         <div>
           <span className="font-bold font-mono text-base tracking-wider text-slate-100">
-            Trace<span className="text-cyber-emerald">X</span>
+            Lead<span className="text-cyber-emerald">Forge</span>
           </span>
           <span className="block text-[9px] font-mono text-slate-500 uppercase tracking-widest">
             SIH 2026 • SIH26146

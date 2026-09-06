@@ -1,5 +1,5 @@
 from typing import Dict, Any, List, Set
-from datetime import datetime
+from datetime import datetime, timezone
 
 class DataQualityAnalyzer:
     def __init__(self):
@@ -56,11 +56,21 @@ class DataQualityAnalyzer:
 
         ts = normalized_record["timestamp"]
         if isinstance(ts, datetime):
+            ts = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
             self.field_presence["timestamp"] += 1
-            if self.time_min is None or ts < self.time_min:
+            if self.time_min is None:
                 self.time_min = ts
-            if self.time_max is None or ts > self.time_max:
+            else:
+                cur_min = self.time_min.replace(tzinfo=timezone.utc) if self.time_min.tzinfo is None else self.time_min
+                if ts < cur_min:
+                    self.time_min = ts
+
+            if self.time_max is None:
                 self.time_max = ts
+            else:
+                cur_max = self.time_max.replace(tzinfo=timezone.utc) if self.time_max.tzinfo is None else self.time_max
+                if ts > cur_max:
+                    self.time_max = ts
 
         # Wallets
         for w in normalized_record.get("input_addresses", []):
