@@ -35,7 +35,6 @@ services:
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql://tracex_user:tracex_secure_offline_password_2026@postgres:5432/tracex
       JWT_SECRET: tracex_investigative_secret_key_sih2026_offline_security
-      UPLOAD_MAX_SIZE_MB: 100
     ports:
       - "8000:8000"
     volumes:

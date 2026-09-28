@@ -113,17 +113,75 @@ def find_shortest_path_subgraph(G: nx.MultiDiGraph, source_id: str, target_id: s
 
 def get_overall_subgraph(G: nx.MultiDiGraph, limit: int = 100) -> GraphResponse:
     """
-    Returns high-level graph snapshot (e.g. top highest degree / highest risk nodes).
+    Returns high-level graph snapshot ensuring rich connectivity and value-flow edges.
+    Selects top transactions and high-risk wallets along with their incident edges
+    so that the resulting graph is densely connected and visually informative in Cytoscape.
     """
     if len(G) == 0:
         return GraphResponse(nodes=[], edges=[], node_count=0, edge_count=0)
 
-    # Sort nodes by degree and risk
-    sorted_nodes = sorted(
-        G.nodes(),
+    # 1. Filter nodes with active connections (degree > 0)
+    connected_nodes = [n for n in G.nodes() if G.degree(n) > 0]
+    if not connected_nodes:
+        # Fallback if no edges exist anywhere in the graph
+        sorted_nodes = sorted(
+            G.nodes(),
+            key=lambda n: (G.nodes[n].get("risk_score", 0), G.degree(n)),
+            reverse=True
+        )[:limit]
+        return graph_to_cytoscape_dict(G.subgraph(sorted_nodes).copy())
+
+    # 2. Prioritize key transaction nodes and high-risk connected wallets as seeds
+    # Transactions are the central hubs connecting input/output wallets and relay IPs
+    tx_seeds = [
+        n for n in connected_nodes
+        if G.nodes[n].get("type") == "TRANSACTION"
+    ]
+    # Sort transactions by total degree (connected inputs + outputs + IPs)
+    tx_seeds.sort(key=lambda n: G.degree(n), reverse=True)
+
+    # High-risk wallet seeds
+    wallet_seeds = [
+        n for n in connected_nodes
+        if G.nodes[n].get("type") == "WALLET" and G.nodes[n].get("risk_score", 0) > 0
+    ]
+    wallet_seeds.sort(
         key=lambda n: (G.nodes[n].get("risk_score", 0), G.degree(n)),
         reverse=True
-    )[:limit]
+    )
 
-    subgraph = G.subgraph(sorted_nodes).copy()
+    selected: Set[str] = set()
+
+    # Step A: Add top transactions and their immediate neighbors (inputs, outputs, IPs)
+    for tx in tx_seeds:
+        if len(selected) >= limit:
+            break
+        selected.add(tx)
+        # Add input wallets (predecessors) and output wallets (successors)
+        neighbors = list(G.predecessors(tx)) + list(G.successors(tx))
+        for nb in neighbors:
+            selected.add(nb)
+            if len(selected) >= limit:
+                break
+
+    # Step B: If there's still room, add high-risk wallets and their connected transactions
+    for w in wallet_seeds:
+        if len(selected) >= limit:
+            break
+        if w not in selected:
+            selected.add(w)
+            for tx_nb in list(G.neighbors(w)) + list(G.predecessors(w)):
+                selected.add(tx_nb)
+                if len(selected) >= limit:
+                    break
+
+    # Step C: If still under limit, fill from remaining connected nodes
+    if len(selected) < limit:
+        for n in connected_nodes:
+            if n not in selected:
+                selected.add(n)
+                if len(selected) >= limit:
+                    break
+
+    subgraph = G.subgraph(selected).copy()
     return graph_to_cytoscape_dict(subgraph)

@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-09-28T19:55:31.536494",
+  "status": "CRITICAL_MISSING_FILES",
+  "validation_directory": "Auto-detected search paths",
+  "files": {
+    "txs_features.csv": {
+      "exists": false,
+      "error": "File not found"
+    },
+    "txs_classes.csv": {
+      "exists": false,
+      "optional": false
+    },
+    "txs_edgelist.csv": {
+      "exists": false,
+      "optional": true
+    },
+    "wallets_features.csv": {
+      "exists": false,
+      "optional": true
+    },
+    "wallets_classes.csv": {
+      "exists": true,
+      "path": "C:\\Users\\ASUS\\Desktop\\SIHH\\wallets_classes.csv",
+      "size_mb": 29.01,
+      "columns": [
+        "address",
+        "class"
+      ],
+      "status": "OK"
+    },
+    "wallets_features_classes_combined.csv": {
+      "exists": false,
+      "optional": true
+    },
+    "AddrTx_edgelist.csv": {
+      "exists": false,
+      "optional": true
+    },
+    "TxAddr_edgelist.csv": {
+      "exists": true,
+      "path": "C:\\Users\\ASUS\\Desktop\\SIHH\\TxAddr_edgelist.csv",
+      "size_mb": 35.0,
+      "columns": [
+        "txId",
+        "output_address"
+      ],
+      "status": "OK"
+    },
+    "network_data.csv": {
+      "exists": true,
+      "path": "C:\\Users\\ASUS\\Documents\\SIH\\data\\correlation\\network_data.csv",
+      "size_mb": 0.0,
+      "columns": [
+        "timestamp",
+        "src_ip",
+        "src_port",
+        "dst_ip",
+        "dst_port",
+        "txid"
+      ],
+      "status": "OK"
+    }
+  },
+  "summary": {
+    "total_files_checked": 9,
+    "files_found": 3,
+    "files_missing": 5,
+    "critical_errors": [
+      "txs_features.csv not found in any search path."
+    ]
+  }
+}

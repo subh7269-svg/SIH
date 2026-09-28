@@ -9,6 +9,7 @@ from backend.app.graph.queries import (
     get_overall_subgraph
 )
 from backend.app.schemas.graph import GraphResponse
+from backend.app.core.logging import logger
 
 # Cached in-memory graph per dataset or global
 _GRAPH_CACHE: Dict[str, nx.MultiDiGraph] = {}
@@ -16,11 +17,14 @@ _GRAPH_CACHE: Dict[str, nx.MultiDiGraph] = {}
 def get_or_build_graph(db: Session, dataset_id: Optional[str] = None, force_rebuild: bool = False) -> nx.MultiDiGraph:
     cache_key = dataset_id or "GLOBAL"
     if force_rebuild or cache_key not in _GRAPH_CACHE:
+        logger.debug(f"[GRAPH_SERVICE] Building graph for cache_key={cache_key} (force={force_rebuild})")
         G = build_networkx_graph_from_db(db, dataset_id=dataset_id)
         _GRAPH_CACHE[cache_key] = G
+        logger.debug(f"[GRAPH_SERVICE] Graph built: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     return _GRAPH_CACHE[cache_key]
 
 def invalidate_graph_cache(dataset_id: Optional[str] = None):
+    logger.debug(f"[GRAPH_SERVICE] Invalidating graph cache: dataset_id={dataset_id}")
     if dataset_id and dataset_id in _GRAPH_CACHE:
         del _GRAPH_CACHE[dataset_id]
     _GRAPH_CACHE.pop("GLOBAL", None)

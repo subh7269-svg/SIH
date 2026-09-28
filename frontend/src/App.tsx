@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { Layout } from './components/layout/Layout';
 import { DashboardPage } from './pages/DashboardPage';
+import { CorrelationPage } from './pages/CorrelationPage';
 import { DatasetsPage } from './pages/DatasetsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { EntitySearchPage } from './pages/EntitySearchPage';
@@ -17,8 +18,8 @@ import { SettingsPage } from './pages/SettingsPage';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 5000,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
       retry: 1,
     },
   },
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="correlation" element={<CorrelationPage />} />
             <Route path="datasets" element={<DatasetsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
             <Route path="search" element={<EntitySearchPage />} />

@@ -16,6 +16,8 @@ class Alert(Base):
     entity_id = Column(String(128), nullable=False, index=True)
     entity_type = Column(String(32), default="WALLET", index=True)  # WALLET, IP, TRANSACTION
     anomaly_score = Column(Float, nullable=False, default=0.0)  # 0.0 to 1.0 (ML output)
+    raw_anomaly_score = Column(Float, nullable=True, default=0.0)  # Isolation Forest raw anomaly score
+    validation_score = Column(Float, nullable=True, default=0.0)  # Contextual validation score
     priority_score = Column(Integer, nullable=False, default=0, index=True)  # 0 to 100
     severity = Column(String(20), nullable=False, default="MEDIUM", index=True)  # LOW, MEDIUM, HIGH, CRITICAL
     confidence = Column(Float, default=0.85)
@@ -23,6 +25,11 @@ class Alert(Base):
     reasons = Column(JSON, default=list)  # List of human-readable feature deviation explanations
     explanation_details = Column(JSON, default=dict)  # Feature deviations vs population baseline
     evidence_summary = Column(JSON, default=dict)  # Associated transactions, counterparties, IP observations
+    supporting_evidence = Column(JSON, default=list)  # Contextual supporting evidence items
+    counter_evidence = Column(JSON, default=list)  # Contextual counter-evidence items
+    behavioural_deviation = Column(JSON, default=dict)  # Learned historical deviations
+    historical_context = Column(JSON, default=dict)  # Entity historical baseline context
+    validation_explanation = Column(String(1000), nullable=True)  # Human-readable contextual explanation
     assigned_to = Column(String(100), nullable=True)
     notes = Column(JSON, default=list)  # Analyst notes
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)

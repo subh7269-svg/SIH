@@ -211,15 +211,19 @@ export const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({
       },
     ];
 
+    const effectiveLayout = (elements.filter(e => e.group === 'edges').length === 0 && layoutName === 'cose')
+      ? 'concentric'
+      : layoutName;
+
     const cy = cytoscape({
       container: containerRef.current,
       elements,
       style: stylesheet,
       layout: {
-        name: layoutName,
+        name: effectiveLayout,
         animate: true,
-        animationDuration: 500,
-        padding: 50,
+        animationDuration: 400,
+        padding: 40,
       } as any,
     });
 
@@ -239,22 +243,57 @@ export const CytoscapeGraph: React.FC<CytoscapeGraphProps> = ({
 
     cyRef.current = cy;
 
+    // Ensure layout dimensions stabilize and graph fits canvas
+    const fitTimer = setTimeout(() => {
+      if (cyRef.current) {
+        cyRef.current.resize();
+        cyRef.current.fit(undefined, 40);
+      }
+    }, 80);
+
+    // ResizeObserver ensures canvas scales accurately on window/drawer resize
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        if (cyRef.current) {
+          cyRef.current.resize();
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+    }
+
     return () => {
+      clearTimeout(fitTimer);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       cy.destroy();
     };
   }, [data, layoutName, focalNodeId]);
 
   const handleZoomIn = () => cyRef.current?.zoom(cyRef.current.zoom() * 1.2);
   const handleZoomOut = () => cyRef.current?.zoom(cyRef.current.zoom() * 0.8);
-  const handleFit = () => cyRef.current?.fit(undefined, 50);
+  const handleFit = () => cyRef.current?.fit(undefined, 40);
   const handleResetLayout = () => {
-    cyRef.current?.layout({ name: layoutName, animate: true, padding: 50 } as any).run();
+    const effectiveLayout = (data.edges.length === 0 && layoutName === 'cose') ? 'concentric' : layoutName;
+    cyRef.current?.layout({ name: effectiveLayout, animate: true, padding: 40 } as any).run();
   };
 
   return (
     <div className="cyber-card relative overflow-hidden border border-cyber-border rounded-xl" style={{ height }}>
       {/* Cytoscape Canvas */}
       <div ref={containerRef} className="w-full h-full bg-cyber-bg" />
+
+      {/* Empty State Overlay */}
+      {data.nodes.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/80 backdrop-blur-sm z-20">
+          <Layers className="w-10 h-10 text-slate-600 mb-3" />
+          <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">No Graph Nodes Available</h4>
+          <p className="text-xs text-slate-500 max-w-sm mt-1">
+            No topological links found for the selected entity or dataset scope. Select another entity or reset to the global view.
+          </p>
+        </div>
+      )}
 
       {/* Floating Toolbar */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 p-1 rounded-lg bg-cyber-card/90 backdrop-blur-md border border-cyber-border shadow-lg">

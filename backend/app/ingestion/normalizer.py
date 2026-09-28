@@ -31,13 +31,32 @@ def to_utc(val: Any) -> Optional[datetime.datetime]:
 
 def normalize_record(raw_record: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Normalizes a single validated transaction record:
+    Normalizes a single validated record (Transaction or Wallet):
     - Normalizes timestamp to UTC datetime
     - Cleans and formats IP strings
     - Computes or completes GeoIP/ASN fields using offline engine
     - Aligns input and output amounts with address lists
     - Standardizes script types and numerical amounts
     """
+    if raw_record.get("record_type") == "WALLET":
+        raw_class = str(raw_record.get("class", "3")).strip()
+        risk_score = 40
+        anomaly_score = 0.35
+        if raw_class == "1":
+            risk_score = 90
+            anomaly_score = 0.85
+        elif raw_class == "2":
+            risk_score = 10
+            anomaly_score = 0.05
+        return {
+            "record_type": "WALLET",
+            "address": str(raw_record.get("address", "")).strip(),
+            "class": raw_class,
+            "risk_score": risk_score,
+            "anomaly_score": anomaly_score,
+            "timestamp": datetime.datetime.now(timezone.utc)
+        }
+
     txid = str(raw_record.get("txid", "")).strip()
     ts = normalize_timestamp(raw_record.get("timestamp"))
 

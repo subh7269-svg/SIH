@@ -29,4 +29,4 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
         
     return logger
 
-logger = setup_logging()
+logger = setup_logging("DEBUG")

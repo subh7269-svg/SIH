@@ -42,7 +42,6 @@ class DataQualityAnalyzer:
     def record_duplicate(self, txid: str):
         self.total_records += 1
         self.duplicate_records += 1
-        self.rejected_records += 1
         reason = f"Duplicate TXID: {txid}"
         self.rejected_reasons[reason] = self.rejected_reasons.get(reason, 0) + 1
 
@@ -50,11 +49,19 @@ class DataQualityAnalyzer:
         self.total_records += 1
         self.valid_records += 1
 
-        txid = normalized_record["txid"]
-        self.unique_txids.add(txid)
-        self.field_presence["txid"] += 1
+        if normalized_record.get("record_type") == "WALLET":
+            addr = normalized_record.get("address", "")
+            if addr:
+                self.unique_wallets.add(addr)
+                self.field_presence["input_addresses"] += 1
+            return
 
-        ts = normalized_record["timestamp"]
+        txid = normalized_record.get("txid")
+        if txid:
+            self.unique_txids.add(txid)
+            self.field_presence["txid"] += 1
+
+        ts = normalized_record.get("timestamp")
         if isinstance(ts, datetime):
             ts = ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else ts.astimezone(timezone.utc)
             self.field_presence["timestamp"] += 1

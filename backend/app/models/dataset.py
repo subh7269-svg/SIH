@@ -23,3 +23,4 @@ class Dataset(Base):
     transactions = relationship("Transaction", back_populates="dataset", cascade="all, delete-orphan")
     ip_observations = relationship("IPObservation", back_populates="dataset", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="dataset", cascade="all, delete-orphan")
+    entity_profiles = relationship("EntityBehaviourProfile", back_populates="dataset", cascade="all, delete-orphan")

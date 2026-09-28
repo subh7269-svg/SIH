@@ -34,8 +34,12 @@ def extract_wallet_features_from_db(db: Session, dataset_id: str = None) -> Tupl
     if not tx_ids:
         return pd.DataFrame(), []
 
-    inputs = db.query(TransactionInput).filter(TransactionInput.transaction_id.in_(tx_ids)).all()
-    outputs = db.query(TransactionOutput).filter(TransactionOutput.transaction_id.in_(tx_ids)).all()
+    if dataset_id:
+        inputs = db.query(TransactionInput).join(Transaction, TransactionInput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id).all()
+        outputs = db.query(TransactionOutput).join(Transaction, TransactionOutput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id).all()
+    else:
+        inputs = db.query(TransactionInput).all()
+        outputs = db.query(TransactionOutput).all()
 
     ip_obs_query = db.query(IPObservation)
     if dataset_id:
@@ -195,15 +199,18 @@ def extract_wallet_features_from_db(db: Session, dataset_id: str = None) -> Tupl
     df = pd.DataFrame(feature_rows, index=wallet_addresses)
     feature_names = list(df.columns) if not df.empty else []
 
-    # Store features into EntityFeature table for persistence & explainability
-    for addr, row in zip(wallet_addresses, feature_rows):
-        feat_obj = EntityFeature(
+    # Store features into EntityFeature table for persistence & explainability in safe batches
+    feat_objs = [
+        EntityFeature(
             entity_id=addr,
             entity_type="WALLET",
             dataset_id=dataset_id,
             features=row
-        )
-        db.merge(feat_obj)
-    db.commit()
+        ) for addr, row in zip(wallet_addresses, feature_rows)
+    ]
+    for i in range(0, len(feat_objs), 500):
+        for obj in feat_objs[i:i + 500]:
+            db.merge(obj)
+        db.commit()
 
     return df, feature_names

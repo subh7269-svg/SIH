@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { generateReport, getAlerts } from '../services/api';
 import { InvestigationReport } from '../types';
+import { generateForensicReportPdf } from '../utils/pdfGenerator';
 
 export const ReportsPage: React.FC = () => {
   const [targetEntityId, setTargetEntityId] = useState('');
@@ -138,6 +139,14 @@ export const ReportsPage: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => generateForensicReportPdf(generatedReport)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyber-emerald text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all shadow-glow-emerald"
+                title="Generates complete multi-page PDF containing all tables and sections"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Forensic PDF (Complete Brief)</span>
+              </button>
+              <button
                 onClick={handlePrint}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs transition-colors"
               >
@@ -146,9 +155,9 @@ export const ReportsPage: React.FC = () => {
               </button>
               <button
                 onClick={handleDownloadMarkdown}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-cyber-emerald text-slate-950 font-bold text-xs hover:bg-emerald-400 transition-all shadow-glow-emerald"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs transition-colors"
               >
-                <Download className="w-3.5 h-3.5" />
+                <FileText className="w-3.5 h-3.5 text-cyber-cyan" />
                 <span>Download Markdown</span>
               </button>
             </div>
@@ -211,9 +220,11 @@ export const ReportsPage: React.FC = () => {
             {/* Transaction Evidence */}
             {generatedReport.transaction_evidence?.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider border-b border-slate-800 pb-1">
-                  2. Associated Blockchain Transaction Records
-                </h3>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                    2. Associated Blockchain Transaction Records ({generatedReport.transaction_evidence.length})
+                  </h3>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[11px]">
                     <thead>
@@ -224,7 +235,7 @@ export const ReportsPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/40 text-slate-300">
-                      {generatedReport.transaction_evidence.slice(0, 5).map((tx, idx) => (
+                      {generatedReport.transaction_evidence.map((tx, idx) => (
                         <tr key={idx}>
                           <td className="py-1.5 font-bold text-cyber-cyan">{tx.txid}</td>
                           <td className="py-1.5">{tx.input_total || tx.output_total || '-'}</td>
@@ -240,9 +251,11 @@ export const ReportsPage: React.FC = () => {
             {/* Network Layer Observations */}
             {generatedReport.network_observations?.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider border-b border-slate-800 pb-1">
-                  3. Network Wire Observations (Relay Provenance)
-                </h3>
+                <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                  <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
+                    3. Network Wire Observations / Relay Provenance ({generatedReport.network_observations.length})
+                  </h3>
+                </div>
                 <p className="text-[10px] text-slate-500">
                   Network relay records demonstrate P2P propagation endpoints and do not assert cryptographic ownership.
                 </p>
@@ -256,7 +269,7 @@ export const ReportsPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/40 text-slate-300">
-                      {generatedReport.network_observations.slice(0, 5).map((ipo, idx) => (
+                      {generatedReport.network_observations.map((ipo, idx) => (
                         <tr key={idx}>
                           <td className="py-1.5 font-bold text-purple-400">{ipo.ip}</td>
                           <td className="py-1.5">{ipo.country}</td>
@@ -265,6 +278,18 @@ export const ReportsPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Investigator Notes */}
+            {generatedReport.analyst_notes && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wider border-b border-slate-800 pb-1">
+                  4. Investigator Notes & Observations
+                </h3>
+                <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 whitespace-pre-wrap">
+                  {generatedReport.analyst_notes}
                 </div>
               </div>
             )}

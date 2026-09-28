@@ -13,6 +13,8 @@ class AlertResponse(BaseModel):
     entity_id: str
     entity_type: str
     anomaly_score: float
+    raw_anomaly_score: Optional[float] = None
+    validation_score: Optional[float] = None
     priority_score: int
     severity: str
     confidence: float
@@ -20,6 +22,11 @@ class AlertResponse(BaseModel):
     reasons: List[str]
     explanation_details: Dict[str, Any]
     evidence_summary: Dict[str, Any]
+    supporting_evidence: Optional[List[Dict[str, Any]]] = []
+    counter_evidence: Optional[List[Dict[str, Any]]] = []
+    behavioural_deviation: Optional[Dict[str, Any]] = {}
+    historical_context: Optional[Dict[str, Any]] = {}
+    validation_explanation: Optional[str] = None
     assigned_to: Optional[str]
     notes: List[Dict[str, Any]] = []
     created_at: datetime

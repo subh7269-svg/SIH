@@ -53,7 +53,7 @@ def generate_investigation_report(
             "| Feature | Observed Value | Population Baseline (Median) | z-Score |",
             "| :--- | :--- | :--- | :--- |"
         ])
-        for f_name, f_val in list(dossier.features.items())[:8]:
+        for f_name, f_val in dossier.features.items():
             dev = dossier.feature_deviations.get(f_name, {})
             b_med = dev.get("baseline_median", "N/A")
             z = dev.get("z_score", "N/A")
@@ -66,12 +66,12 @@ def generate_investigation_report(
             "| TXID | Total Volume (BTC) | Fee (BTC) | Timestamp |",
             "| :--- | :--- | :--- | :--- |"
         ])
-        for tx in dossier.recent_transactions[:10]:
+        for tx in dossier.recent_transactions:
             txid = tx.get("txid", "N/A")
             vol = tx.get("input_total", 0.0)
             fee = tx.get("fee", 0.0)
             ts = tx.get("timestamp", "N/A")
-            md_lines.append(f"| `{txid[:16]}...` | {vol:.4f} | {fee:.4f} | {ts} |")
+            md_lines.append(f"| `{txid}` | {vol:.4f} | {fee:.4f} | {ts} |")
 
         if dossier.observed_ips:
             md_lines.extend([
@@ -81,7 +81,7 @@ def generate_investigation_report(
                 "| Relay IP | Country | Autonomous System (ASN) | Observation Time |",
                 "| :--- | :--- | :--- | :--- |"
             ])
-            for ip_info in dossier.observed_ips[:10]:
+            for ip_info in dossier.observed_ips:
                 md_lines.append(f"| `{ip_info.get('ip')}` | {ip_info.get('country')} | {ip_info.get('asn')} | {ip_info.get('timestamp', 'N/A')} |")
 
     if request.analyst_notes:

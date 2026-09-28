@@ -8,6 +8,7 @@ from backend.app.models.alert import Alert
 from backend.app.models.investigation import InvestigationCase
 from backend.app.models.audit import AuditLog
 from backend.app.models.user import User
+from backend.app.models.profile import EntityBehaviourProfile
 
 __all__ = [
     "Base",
@@ -24,4 +25,5 @@ __all__ = [
     "InvestigationCase",
     "AuditLog",
     "User",
+    "EntityBehaviourProfile",
 ]

@@ -36,6 +36,14 @@ class EntityDossierSchema(BaseModel):
     recent_transactions: List[Dict[str, Any]] = []
     related_alerts: List[Dict[str, Any]] = []
     cluster_info: Optional[Dict[str, Any]] = None
+    raw_anomaly_score: Optional[float] = None
+    validation_score: Optional[float] = None
+    confidence: Optional[float] = None
+    supporting_evidence: Optional[List[Dict[str, Any]]] = []
+    counter_evidence: Optional[List[Dict[str, Any]]] = []
+    behavioural_deviation: Optional[Dict[str, Any]] = {}
+    historical_context: Optional[Dict[str, Any]] = {}
+    validation_explanation: Optional[str] = None
 
 class EntitySearchResult(BaseModel):
     entity_id: str

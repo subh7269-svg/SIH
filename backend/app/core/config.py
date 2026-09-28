@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from typing import List, Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "TraceX — Bitcoin Investigation & Risk Intelligence"
@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # 8 hours
     
-    # Ingestion Limits
-    UPLOAD_MAX_SIZE_MB: int = 100
+    # Ingestion Limits (No arbitrary limit - streaming chunked ingestion)
+    UPLOAD_MAX_SIZE_MB: Optional[int] = None
     BATCH_INSERT_SIZE: int = 1000
     
     # Paths

@@ -68,6 +68,8 @@ export interface Alert {
   entity_id: string;
   entity_type: 'WALLET' | 'IP' | 'TRANSACTION';
   anomaly_score: number;
+  raw_anomaly_score?: number;
+  validation_score?: number;
   priority_score: number;
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   confidence: number;
@@ -85,7 +87,25 @@ export interface Alert {
       graph_score: number;
     };
     metrics?: Record<string, any>;
+    contextual_validation?: Record<string, any>;
   };
+  supporting_evidence?: Array<{
+    feature: string;
+    observed_value: any;
+    baseline_value: any;
+    deviation_type: string;
+    reason: string;
+  }>;
+  counter_evidence?: Array<{
+    feature: string;
+    observed_value: any;
+    baseline_value: any;
+    counter_type: string;
+    reason: string;
+  }>;
+  historical_context?: Record<string, any>;
+  behavioural_deviation?: Record<string, any>;
+  validation_explanation?: string;
   assigned_to?: string;
   notes?: Array<{
     timestamp: string;
@@ -112,6 +132,9 @@ export interface EntityDossier {
   entity_type: 'WALLET' | 'TRANSACTION' | 'IP' | 'ASN';
   risk_score: number;
   anomaly_score: number;
+  raw_anomaly_score?: number;
+  validation_score?: number;
+  confidence?: number;
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   first_seen?: string;
   last_seen?: string;
@@ -129,6 +152,23 @@ export interface EntityDossier {
   features: Record<string, any>;
   explanation_reasons: string[];
   feature_deviations: Record<string, any>;
+  supporting_evidence?: Array<{
+    feature: string;
+    observed_value: any;
+    baseline_value: any;
+    deviation_type: string;
+    reason: string;
+  }>;
+  counter_evidence?: Array<{
+    feature: string;
+    observed_value: any;
+    baseline_value: any;
+    counter_type: string;
+    reason: string;
+  }>;
+  historical_context?: Record<string, any>;
+  behavioural_deviation?: Record<string, any>;
+  validation_explanation?: string;
   recent_transactions: Array<{
     txid: string;
     timestamp?: string;
@@ -141,6 +181,9 @@ export interface EntityDossier {
     id: string;
     severity: string;
     priority_score: number;
+    raw_anomaly_score?: number;
+    validation_score?: number;
+    confidence?: number;
     status: string;
     created_at: string;
   }>;
@@ -219,4 +262,83 @@ export interface User {
   role: 'INVESTIGATOR' | 'ADMIN';
   full_name: string;
   badge_number: string;
+}
+
+// -------------------------------------------------------------
+// Correlation Engine Types
+// -------------------------------------------------------------
+export interface CorrelationMetrics {
+  transactions_processed: number;
+  wallets_connected: number;
+  network_observations: number;
+  correlated_transactions: number;
+  investigation_leads: number;
+  high_priority_leads: number;
+}
+
+export interface CorrelationStatus {
+  job_id?: string;
+  status: string;
+  step?: string;
+  progress_pct?: number;
+  processed_transactions?: number;
+  total_transactions?: number;
+  started_at?: string;
+  completed_at?: string;
+  metrics?: CorrelationMetrics;
+  total_leads?: number;
+  error?: string;
+}
+
+export interface InvestigationLeadItem {
+  txid: string;
+  timestamp: string | number;
+  amount: number;
+  fee: number;
+  tx_class: string;
+  fan_in: number;
+  fan_out: number;
+  wallet_count: number;
+  network_confidence: number;
+  risk_score: number;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidence: string;
+  ml_anomaly_score?: number;
+  ml_anomaly_label?: number;
+}
+
+export interface InvestigationLeadDetail {
+  txid: string;
+  risk_score: number;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  evidence: string[];
+  transaction_information: {
+    timestamp: string | number;
+    amount: number;
+    fee: number;
+    tx_class: string;
+    fan_in: number;
+    fan_out: number;
+    script_type: string;
+  };
+  wallet_information: {
+    input_wallets: string[];
+    output_wallets: string[];
+    related_wallets: string[];
+    wallet_classes: string;
+  };
+  network_correlation: {
+    src_ip?: string;
+    src_port?: number;
+    dst_ip?: string;
+    dst_port?: number;
+    time_difference_seconds?: number;
+    correlation_method?: string;
+    network_confidence?: number;
+  };
+  ml_anomaly_information: {
+    ml_anomaly_score?: number;
+    ml_anomaly_label?: number;
+    model: string;
+  };
 }

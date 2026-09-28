@@ -16,6 +16,7 @@ import {
 
 const NAV_ITEMS = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Correlation Engine', path: '/correlation', icon: Zap },
   { name: 'Datasets & Ingestion', path: '/datasets', icon: Database },
   { name: 'Investigative Alerts', path: '/alerts', icon: BellRing },
   { name: 'Entity Search', path: '/search', icon: Search },

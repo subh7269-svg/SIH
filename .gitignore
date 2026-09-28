@@ -24,7 +24,23 @@ wheels/
 .coverage
 htmlcov/
 *.db
+*.db-wal
+*.db-shm
+*.sqlite
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python Linters & Caches
+.mypy_cache/
+.ruff_cache/
+*.log
 
 # Node / Frontend
 node_modules/
@@ -38,9 +54,14 @@ frontend/.vite/
 .env.local
 .env.*.local
 
-# ML Artifacts (temporary trained models)
+# ML Artifacts & Generated Models
 ml/artifacts/*.joblib
 ml/artifacts/*.pkl
+models/*.joblib
+models/*.pkl
+
+# Generated Pipeline Outputs
+correlation_output/
 
 # OS / Editor
 .DS_Store

@@ -16,8 +16,13 @@ def build_networkx_graph_from_db(db: Session, dataset_id: Optional[str] = None) 
     tx_query = db.query(Transaction)
     if dataset_id:
         tx_query = tx_query.filter(Transaction.dataset_id == dataset_id)
+    else:
+        # Limit global overview graph to the most recent / active transactions
+        # to ensure graph construction finishes in milliseconds rather than loading the entire DB
+        tx_query = tx_query.order_by(Transaction.timestamp.desc()).limit(1500)
     transactions = tx_query.all()
     tx_ids = [t.id for t in transactions]
+    tx_txids = [t.txid for t in transactions]
 
     if not tx_ids:
         return G
@@ -39,7 +44,12 @@ def build_networkx_graph_from_db(db: Session, dataset_id: Optional[str] = None) 
         )
 
     # Inputs: (WALLET) -> (TRANSACTION)
-    inputs = db.query(TransactionInput).filter(TransactionInput.transaction_id.in_(tx_ids)).all()
+    inputs = []
+    BATCH_SIZE = 500
+    for i in range(0, len(tx_ids), BATCH_SIZE):
+        chunk_ids = tx_ids[i:i + BATCH_SIZE]
+        inputs.extend(db.query(TransactionInput).filter(TransactionInput.transaction_id.in_(chunk_ids)).all())
+
     for inp in inputs:
         wallet_node_id = inp.wallet_address
         if not G.has_node(wallet_node_id):
@@ -61,7 +71,11 @@ def build_networkx_graph_from_db(db: Session, dataset_id: Optional[str] = None) 
         )
 
     # Outputs: (TRANSACTION) -> (WALLET)
-    outputs = db.query(TransactionOutput).filter(TransactionOutput.transaction_id.in_(tx_ids)).all()
+    outputs = []
+    for i in range(0, len(tx_ids), BATCH_SIZE):
+        chunk_ids = tx_ids[i:i + BATCH_SIZE]
+        outputs.extend(db.query(TransactionOutput).filter(TransactionOutput.transaction_id.in_(chunk_ids)).all())
+
     for out in outputs:
         wallet_node_id = out.wallet_address
         if not G.has_node(wallet_node_id):
@@ -83,10 +97,13 @@ def build_networkx_graph_from_db(db: Session, dataset_id: Optional[str] = None) 
         )
 
     # IP Observations: (IP) -> (TRANSACTION), (IP) -> (ASN), (IP) -> (COUNTRY)
-    ip_obs_query = db.query(IPObservation)
-    if dataset_id:
-        ip_obs_query = ip_obs_query.filter(IPObservation.dataset_id == dataset_id)
-    ip_observations = ip_obs_query.all()
+    ip_observations = []
+    for i in range(0, len(tx_txids), BATCH_SIZE):
+        chunk_txids = tx_txids[i:i + BATCH_SIZE]
+        ip_query = db.query(IPObservation).filter(IPObservation.txid.in_(chunk_txids))
+        if dataset_id:
+            ip_query = ip_query.filter(IPObservation.dataset_id == dataset_id)
+        ip_observations.extend(ip_query.all())
 
     for ip_obs in ip_observations:
         ip_node_id = ip_obs.src_ip
@@ -157,10 +174,13 @@ def build_networkx_graph_from_db(db: Session, dataset_id: Optional[str] = None) 
     # Enrich wallets with risk/anomaly scores if available
     wallet_addrs = [n for n, d in G.nodes(data=True) if d.get("type") == "WALLET"]
     if wallet_addrs:
-        wallets = db.query(Wallet).filter(Wallet.address.in_(wallet_addrs)).all()
-        for w in wallets:
-            if G.has_node(w.address):
-                G.nodes[w.address]["risk_score"] = w.risk_score
-                G.nodes[w.address]["anomaly_score"] = w.anomaly_score
+        BATCH_SIZE = 500
+        for i in range(0, len(wallet_addrs), BATCH_SIZE):
+            sub_batch = wallet_addrs[i : i + BATCH_SIZE]
+            wallets = db.query(Wallet).filter(Wallet.address.in_(sub_batch)).all()
+            for w in wallets:
+                if G.has_node(w.address):
+                    G.nodes[w.address]["risk_score"] = w.risk_score
+                    G.nodes[w.address]["anomaly_score"] = w.anomaly_score
 
     return G

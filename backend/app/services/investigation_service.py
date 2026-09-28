@@ -77,11 +77,16 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
         severity = alert.severity if alert else ("CRITICAL" if wallet.risk_score >= 80 else "HIGH" if wallet.risk_score >= 60 else "MEDIUM" if wallet.risk_score >= 35 else "LOW")
 
         # Fetch transactions
-        inputs = db.query(TransactionInput).filter(TransactionInput.wallet_address == entity_id).limit(20).all()
-        outputs = db.query(TransactionOutput).filter(TransactionOutput.wallet_address == entity_id).limit(20).all()
+        inputs = db.query(TransactionInput).filter(TransactionInput.wallet_address == entity_id).all()
+        outputs = db.query(TransactionOutput).filter(TransactionOutput.wallet_address == entity_id).all()
         txids = list(set([i.txid for i in inputs] + [o.txid for o in outputs]))
 
-        tx_records = db.query(Transaction).filter(Transaction.txid.in_(txids)).order_by(Transaction.timestamp.desc()).limit(15).all()
+        tx_records = []
+        BATCH_SIZE = 500
+        for i in range(0, len(txids), BATCH_SIZE):
+            sub_batch = txids[i : i + BATCH_SIZE]
+            tx_records.extend(db.query(Transaction).filter(Transaction.txid.in_(sub_batch)).all())
+        tx_records.sort(key=lambda t: t.timestamp if t.timestamp else datetime.min, reverse=True)
         recent_txs = [{
             "txid": t.txid,
             "timestamp": t.timestamp.isoformat(),
@@ -92,7 +97,10 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
         } for t in tx_records]
 
         # Fetch IP observations linked to these transactions
-        ip_obs = db.query(IPObservation).filter(IPObservation.txid.in_(txids)).all()
+        ip_obs = []
+        for i in range(0, len(txids), BATCH_SIZE):
+            sub_batch = txids[i : i + BATCH_SIZE]
+            ip_obs.extend(db.query(IPObservation).filter(IPObservation.txid.in_(sub_batch)).all())
         obs_ips = [{
             "ip": ipo.src_ip,
             "country": ipo.country,
@@ -138,10 +146,21 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
                 "id": alert.id,
                 "severity": alert.severity,
                 "priority_score": alert.priority_score,
+                "raw_anomaly_score": getattr(alert, "raw_anomaly_score", alert.anomaly_score),
+                "validation_score": getattr(alert, "validation_score", None),
+                "confidence": alert.confidence,
                 "status": alert.status,
                 "created_at": alert.created_at.isoformat()
             }] if alert else [],
-            cluster_info=cluster_info
+            cluster_info=cluster_info,
+            raw_anomaly_score=getattr(alert, "raw_anomaly_score", alert.anomaly_score) if alert else wallet.anomaly_score,
+            validation_score=getattr(alert, "validation_score", None) if alert else None,
+            confidence=alert.confidence if alert else 0.50,
+            supporting_evidence=alert.supporting_evidence if alert else [],
+            counter_evidence=alert.counter_evidence if alert else [],
+            behavioural_deviation=getattr(alert, "behavioural_deviation", {}) if alert else {},
+            historical_context=alert.historical_context if alert else {},
+            validation_explanation=alert.validation_explanation if alert else None
         )
 
     # 2. Check if Transaction
@@ -196,7 +215,7 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
             features={"relayed_tx_count": len(related_txids)},
             explanation_reasons=[f"Network peer IP observed relaying {len(related_txids)} transactions."],
             feature_deviations={},
-            recent_transactions=[{"txid": t} for t in related_txids[:10]],
+            recent_transactions=[{"txid": t} for t in related_txids],
             related_alerts=[]
         )
 

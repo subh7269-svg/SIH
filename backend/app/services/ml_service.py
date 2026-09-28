@@ -18,6 +18,8 @@ from backend.app.ml.clustering import EntityClusterer
 from backend.app.ml.evaluation import evaluate_detector
 from backend.app.risk.scorer import compute_deterministic_risk_score
 from backend.app.explainability.explainer import explainer_engine
+from backend.app.validation.contextual_validator import contextual_validator
+from backend.app.validation.profiler import build_and_store_profiles_for_dataset
 from backend.app.core.logging import logger
 
 def train_and_evaluate_pipeline(
@@ -37,10 +39,14 @@ def train_and_evaluate_pipeline(
     6. Ranked Alert Generation
     """
     start_time = time.time()
+    logger.info(f"[ML_SERVICE] ▶ Starting ML pipeline: dataset={dataset_id}, model={model_type}, contamination={contamination}")
 
     # 1. Feature extraction
+    logger.info(f"[ML_SERVICE] Step 1/6: Extracting features...")
     df_features, feature_names = extract_wallet_features_from_db(db, dataset_id=dataset_id)
+    logger.info(f"[ML_SERVICE] Features extracted: {len(df_features)} entities, {len(feature_names)} features")
     if df_features.empty or len(df_features) < 3:
+        logger.warning(f"[ML_SERVICE] ✗ SKIPPED — Not enough entities ({len(df_features)} < 3)")
         return {
             "status": "SKIPPED",
             "message": "Not enough wallet entities in dataset to train ML model (minimum 3 required).",
@@ -51,14 +57,18 @@ def train_and_evaluate_pipeline(
     explainer_engine.compute_population_baselines(df_features)
 
     # 2. Fit Primary Model (Isolation Forest)
+    logger.info(f"[ML_SERVICE] Step 2/6: Training {model_type}...")
     detector = AnomalyDetector(model_type=model_type, contamination=contamination, random_state=42)
     detector.fit(df_features)
     anomaly_scores, binary_preds = detector.predict_anomaly_scores(df_features)
+    logger.info(f"[ML_SERVICE] {model_type} trained: {int(binary_preds.sum())} anomalies detected out of {len(binary_preds)}")
 
     # 3. Fit Baseline Model for Comparison (Local Outlier Factor)
+    logger.info(f"[ML_SERVICE] Step 3/6: Training LOF baseline for comparison...")
     baseline_detector = AnomalyDetector(model_type="LOCAL_OUTLIER_FACTOR", contamination=contamination)
     baseline_detector.fit(df_features)
     baseline_scores, baseline_preds = baseline_detector.predict_anomaly_scores(df_features)
+    logger.info(f"[ML_SERVICE] LOF baseline: {int(baseline_preds.sum())} anomalies detected")
 
     train_duration_ms = int((time.time() - start_time) * 1000)
 
@@ -104,10 +114,13 @@ def train_and_evaluate_pipeline(
     )
     db.add(model_obj)
     db.commit()
+    logger.info(f"[ML_SERVICE] Model artifact saved: id={model_obj.id}, path={artifact_path}")
 
     # 4. DBSCAN Clustering
+    logger.info(f"[ML_SERVICE] Step 4/6: Running DBSCAN clustering...")
     clusterer = EntityClusterer(eps=0.7, min_samples=3)
     clusters_meta = clusterer.fit_predict(df_features)
+    logger.info(f"[ML_SERVICE] Clustering done: {len(clusters_meta)} clusters found")
 
     # Clean old clusters for this dataset and insert new
     if dataset_id:
@@ -126,8 +139,16 @@ def train_and_evaluate_pipeline(
         )
         db.add(c_obj)
     db.commit()
+    logger.info(f"[ML_SERVICE] Clusters persisted to DB")
+
+    # 4.5 Derive and persist historical behavioural baselines from raw dataset observations (No leakage)
+    if dataset_id:
+        logger.info(f"[ML_SERVICE] Step 5/6: Building behavioural profiles...")
+        build_and_store_profiles_for_dataset(db, dataset_id=dataset_id)
+        logger.info(f"[ML_SERVICE] Behavioural profiles stored")
 
     # 5. Risk Prioritization & Alert Generation
+    logger.info(f"[ML_SERVICE] Step 6/6: Risk scoring & alert generation for {len(wallet_addresses) if 'wallet_addresses' in dir() else len(df_features)} entities...")
     alerts_generated = 0
     # Clean previous alerts for this dataset
     if dataset_id:
@@ -136,7 +157,11 @@ def train_and_evaluate_pipeline(
 
     # Fetch transaction mapping for evidence summaries
     wallet_addresses = list(df_features.index)
-    wallets_in_db = {w.address: w for w in db.query(Wallet).filter(Wallet.address.in_(wallet_addresses)).all()}
+    wallets_in_db = {}
+    for i in range(0, len(wallet_addresses), 500):
+        sub_addrs = wallet_addresses[i:i + 500]
+        for w in db.query(Wallet).filter(Wallet.address.in_(sub_addrs)).all():
+            wallets_in_db[w.address] = w
 
     for idx, addr in enumerate(wallet_addresses):
         a_score = float(anomaly_scores[idx])
@@ -163,30 +188,47 @@ def train_and_evaluate_pipeline(
 
             ip_obs = [ipo.src_ip for ipo in db.query(IPObservation.src_ip).filter(IPObservation.txid.in_(related_txs)).limit(5).all()]
 
+            # Contextual Validation Layer (Entity Behaviour vs Entity's Historical Baseline)
+            val_res = contextual_validator.validate_entity_anomaly(
+                entity_id=addr,
+                current_features=feat_dict,
+                raw_anomaly_score=a_score,
+                db=db,
+                dataset_id=dataset_id
+            )
+
             alert_obj = Alert(
                 id=str(uuid.uuid4()),
                 dataset_id=dataset_id,
                 entity_id=addr,
                 entity_type="WALLET",
-                anomaly_score=round(a_score, 4),
+                anomaly_score=round(a_score, 4),  # Preserved as-is for backwards compatibility
+                raw_anomaly_score=val_res["raw_anomaly_score"],  # Preserved raw Isolation Forest score
+                validation_score=val_res["validation_score"],  # Contextual validation score
                 priority_score=priority_score,
                 severity=severity,
-                confidence=round(0.80 + (a_score * 0.15), 2),
+                confidence=val_res["confidence"],  # Contextual confidence
                 status="NEW",
                 reasons=reasons,
                 explanation_details=deviation_details,
+                behavioural_deviation=val_res.get("behavioural_deviation"),
+                supporting_evidence=val_res["supporting_evidence"],
+                counter_evidence=val_res["counter_evidence"],
+                historical_context=val_res["historical_context"],
+                validation_explanation=val_res["validation_explanation"],
                 evidence_summary={
                     "related_transactions": related_txs,
                     "observed_ips": list(set(ip_obs)),
                     "subscores": subscores,
-                    "metrics": feat_dict
+                    "metrics": feat_dict,
+                    "contextual_validation": val_res
                 }
             )
             db.add(alert_obj)
             alerts_generated += 1
 
     db.commit()
-    logger.info(f"ML Pipeline completed: {len(df_features)} entities evaluated, {alerts_generated} alerts created.")
+    logger.info(f"[ML_SERVICE] ✓ ML Pipeline COMPLETED: {len(df_features)} entities evaluated, {alerts_generated} alerts generated, {len(clusters_meta)} clusters")
 
     return {
         "status": "COMPLETED",

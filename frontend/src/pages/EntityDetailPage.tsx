@@ -170,6 +170,14 @@ export const EntityDetailPage: React.FC = () => {
             severity={dossier.severity}
             anomalyScore={dossier.anomaly_score}
             priorityScore={dossier.risk_score}
+            rawAnomalyScore={dossier.raw_anomaly_score}
+            validationScore={dossier.validation_score}
+            confidence={dossier.confidence}
+            supportingEvidence={dossier.supporting_evidence}
+            counterEvidence={dossier.counter_evidence}
+            behaviouralDeviation={dossier.behavioural_deviation}
+            historicalContext={dossier.historical_context}
+            validationExplanation={dossier.validation_explanation}
           />
 
           <div className="cyber-card p-5 space-y-3">

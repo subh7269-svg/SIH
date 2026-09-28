@@ -47,63 +47,217 @@ def parse_list_field(val: Any) -> List[Any]:
 
     return [val_str]
 
+def find_col(row_dict: dict, *candidates: str) -> Any:
+    """Finds a column value matching any of the candidate names case-insensitively and ignoring punctuation."""
+    norm_candidates = {c.lower().replace("_", "").replace("-", "").replace(" ", "") for c in candidates}
+    for k, v in row_dict.items():
+        if k and str(k).lower().replace("_", "").replace("-", "").replace(" ", "") in norm_candidates:
+            if v is not None and not (isinstance(v, float) and pd.isna(v)):
+                val_str = str(v).strip()
+                if val_str and val_str.lower() not in ("nan", "null", "none"):
+                    return v
+    return None
+
 def parse_csv_stream(file_obj_or_path: Union[io.BytesIO, str, io.StringIO], chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
     """
     Parses CSV in streaming chunks without loading the whole file into memory.
+    Robust against arbitrary column naming, casing, and supports both transaction and wallet-class schemas.
     """
     try:
         for chunk in pd.read_csv(file_obj_or_path, chunksize=chunk_size, dtype=object, keep_default_na=False):
+            # Detect schema from chunk columns
+            norm_cols = {str(c).lower().replace("_", "").replace("-", "").replace(" ", "") for c in chunk.columns}
+            is_wallet_dataset = ("address" in norm_cols or "walletaddress" in norm_cols or "wallet" in norm_cols) and not any(t in norm_cols for t in ("txid", "txhash", "transactionid", "txid1"))
+            is_tx_class_dataset = any(t in norm_cols for t in ("txid", "txhash", "transactionid")) and ("class" in norm_cols or "label" in norm_cols) and not any(a in norm_cols for a in ("inputaddresses", "inputs", "inputwallets", "outputaddresses", "outputs", "outputwallets"))
+
             records = []
             for _, row in chunk.iterrows():
                 row_dict = row.to_dict()
-                
-                # Standardize column naming
+
+                if is_wallet_dataset:
+                    mapped = {
+                        "record_type": "WALLET",
+                        "address": str(find_col(row_dict, "address", "wallet_address", "wallet") or "").strip(),
+                        "class": str(find_col(row_dict, "class", "label", "category") or "3").strip(),
+                    }
+                    records.append(mapped)
+                    continue
+
+                if is_tx_class_dataset:
+                    mapped = {
+                        "record_type": "TX_CLASS",
+                        "txid": str(find_col(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id") or "").strip(),
+                        "class": str(find_col(row_dict, "class", "label", "category") or "3").strip(),
+                    }
+                    records.append(mapped)
+                    continue
+
+                # Standard Transaction Record
                 mapped = {
-                    "txid": row_dict.get("txid") or row_dict.get("TXID") or row_dict.get("tx_hash"),
-                    "timestamp": row_dict.get("timestamp") or row_dict.get("time") or row_dict.get("block_time"),
-                    "fee": row_dict.get("fee", 0.0),
-                    "script_type": row_dict.get("script_type") or row_dict.get("type", "P2PKH"),
-                    "input_addresses": parse_list_field(row_dict.get("input_addresses") or row_dict.get("inputs") or row_dict.get("src_addresses")),
-                    "output_addresses": parse_list_field(row_dict.get("output_addresses") or row_dict.get("outputs") or row_dict.get("dst_addresses")),
-                    "input_amounts": parse_list_field(row_dict.get("input_amounts") or row_dict.get("in_amounts")),
-                    "output_amounts": parse_list_field(row_dict.get("output_amounts") or row_dict.get("out_amounts") or row_dict.get("amounts")),
-                    "src_ip": row_dict.get("src_ip") or row_dict.get("ip") or row_dict.get("peer_ip"),
-                    "dst_ip": row_dict.get("dst_ip"),
-                    "src_port": row_dict.get("src_port"),
-                    "dst_port": row_dict.get("dst_port"),
-                    "geo_country": row_dict.get("geo_country") or row_dict.get("country"),
-                    "asn": row_dict.get("asn")
+                    "record_type": "TRANSACTION",
+                    "txid": find_col(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id", "txId1"),
+                    "timestamp": find_col(row_dict, "timestamp", "time", "block_time", "date", "datetime", "ts", "network_timestamp"),
+                    "fee": find_col(row_dict, "fee", "fees", "tx_fee") or 0.0,
+                    "script_type": find_col(row_dict, "script_type", "scripttype", "type", "script") or "P2PKH",
+                    "input_addresses": parse_list_field(find_col(row_dict, "input_addresses", "inputaddresses", "inputs", "input_wallets", "inputwallets", "src_addresses", "sender")),
+                    "output_addresses": parse_list_field(find_col(row_dict, "output_addresses", "outputaddresses", "outputs", "output_wallets", "outputwallets", "dst_addresses", "receiver")),
+                    "input_amounts": parse_list_field(find_col(row_dict, "input_amounts", "inputamounts", "in_amounts", "inamounts", "input_val")),
+                    "output_amounts": parse_list_field(find_col(row_dict, "output_amounts", "outputamounts", "out_amounts", "outamounts", "amounts", "output_val")),
+                    "src_ip": find_col(row_dict, "src_ip", "srcip", "source_ip", "ip", "peer_ip", "relay_ip"),
+                    "dst_ip": find_col(row_dict, "dst_ip", "dstip", "destination_ip"),
+                    "src_port": find_col(row_dict, "src_port", "srcport"),
+                    "dst_port": find_col(row_dict, "dst_port", "dstport"),
+                    "geo_country": find_col(row_dict, "geo_country", "geocountry", "country", "location"),
+                    "asn": find_col(row_dict, "asn", "as_number", "autonomous_system"),
+                    "wallet_classes": find_col(row_dict, "wallet_classes", "walletclasses"),
+                    "tx_class": find_col(row_dict, "tx_class", "txclass", "class", "label"),
+                    "ml_anomaly_score": find_col(row_dict, "ml_anomaly_score", "mlanomalyscore", "anomaly_score")
                 }
                 records.append(mapped)
             yield records
     except Exception as e:
         raise InvalidFileFormatError(f"CSV Parsing Failed: {str(e)}")
 
-def parse_json_stream(file_bytes: bytes, chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
+def stream_json_objects(source: Union[str, bytes, io.BytesIO, io.StringIO]) -> Iterator[Dict[str, Any]]:
     """
-    Parses JSON data in memory-safe chunks.
+    Memory-safe generator yielding JSON transaction dicts from file path, bytes, or stream.
+    Supports:
+    1. Standard JSON array: [ {...}, {...} ]
+    2. JSON object with array property: {"transactions": [ {...} ]} or {"data": [...]}
+    3. JSON Lines (NDJSON): one JSON object per line
     """
-    try:
-        content_str = file_bytes.decode("utf-8", errors="replace")
+    if isinstance(source, (bytes, bytearray)):
+        content_str = source.decode("utf-8", errors="replace")
         data = json.loads(content_str)
         if isinstance(data, dict):
-            if "transactions" in data and isinstance(data["transactions"], list):
-                raw_list = data["transactions"]
-            elif "data" in data and isinstance(data["data"], list):
-                raw_list = data["data"]
-            elif "records" in data and isinstance(data["records"], list):
-                raw_list = data["records"]
-            else:
-                raw_list = [data]
+            for k in ("transactions", "data", "records", "items"):
+                if k in data and isinstance(data[k], list):
+                    for item in data[k]:
+                        if isinstance(item, dict):
+                            yield item
+                    return
+            yield data
         elif isinstance(data, list):
-            raw_list = data
-        else:
-            raise InvalidFileFormatError("JSON root must be a list or object with transaction array.")
+            for item in data:
+                if isinstance(item, dict):
+                    yield item
+        return
 
+    f_to_close = None
+    if isinstance(source, str):
+        f = open(source, "r", encoding="utf-8", errors="replace")
+        f_to_close = f
+    elif hasattr(source, "read"):
+        f = source
+    else:
+        return
+
+    try:
+        # Detect first non-whitespace character
+        first_char = ""
+        while True:
+            ch = f.read(1)
+            if not ch:
+                break
+            if not ch.isspace():
+                first_char = ch
+                break
+
+        if not first_char:
+            return
+
+        if first_char == "[":
+            decoder = json.JSONDecoder()
+            buffer = ""
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                buffer += chunk
+                while buffer:
+                    buffer = buffer.lstrip()
+                    if not buffer:
+                        break
+                    if buffer[0] == ",":
+                        buffer = buffer[1:].lstrip()
+                    if not buffer:
+                        break
+                    if buffer[0] == "]":
+                        return
+                    try:
+                        obj, idx = decoder.raw_decode(buffer)
+                        if isinstance(obj, dict):
+                            yield obj
+                        buffer = buffer[idx:].lstrip()
+                    except json.JSONDecodeError:
+                        break
+
+            # Flush remaining buffer
+            buffer = buffer.lstrip()
+            while buffer and buffer[0] != "]":
+                if buffer[0] == ",":
+                    buffer = buffer[1:].lstrip()
+                if not buffer or buffer[0] == "]":
+                    break
+                try:
+                    obj, idx = decoder.raw_decode(buffer)
+                    if isinstance(obj, dict):
+                        yield obj
+                    buffer = buffer[idx:].lstrip()
+                except json.JSONDecodeError:
+                    break
+
+        elif first_char == "{":
+            rest_of_line = f.readline()
+            first_line = first_char + rest_of_line
+            is_ndjson = False
+            try:
+                first_obj = json.loads(first_line.strip())
+                if isinstance(first_obj, dict) and not any(k in first_obj for k in ("transactions", "data", "records")):
+                    is_ndjson = True
+                    yield first_obj
+            except Exception:
+                is_ndjson = False
+
+            if is_ndjson:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            obj = json.loads(line)
+                            if isinstance(obj, dict):
+                                yield obj
+                        except Exception:
+                            pass
+            else:
+                if hasattr(f, "seek"):
+                    f.seek(0)
+                    data = json.load(f)
+                else:
+                    data = json.loads(first_line + f.read())
+                if isinstance(data, dict):
+                    for k in ("transactions", "data", "records", "items"):
+                        if k in data and isinstance(data[k], list):
+                            for item in data[k]:
+                                if isinstance(item, dict):
+                                    yield item
+                            return
+                    yield data
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict):
+                            yield item
+    finally:
+        if f_to_close:
+            f_to_close.close()
+
+def parse_json_stream(file_bytes_or_path: Union[bytes, str, io.BytesIO, io.StringIO], chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
+    """
+    Parses JSON data in memory-safe chunks from file path or bytes.
+    """
+    try:
         current_chunk = []
-        for item in raw_list:
-            if not isinstance(item, dict):
-                continue
+        for item in stream_json_objects(file_bytes_or_path):
             mapped = {
                 "txid": item.get("txid") or item.get("tx_hash"),
                 "timestamp": item.get("timestamp") or item.get("time"),
@@ -130,13 +284,20 @@ def parse_json_stream(file_bytes: bytes, chunk_size: int = 1000) -> Iterator[Lis
     except Exception as e:
         raise InvalidFileFormatError(f"JSON Parsing Failed: {str(e)}")
 
-def parse_xml_stream(file_bytes: bytes, chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
+def parse_xml_stream(file_bytes_or_path: Union[bytes, str, io.BytesIO], chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
     """
     Streaming XML parser using ET.iterparse for transaction elements.
+    Accepts a disk file path (memory-safe) or in-memory bytes.
     """
     try:
-        bio = io.BytesIO(file_bytes)
-        context = ET.iterparse(bio, events=("end",))
+        if isinstance(file_bytes_or_path, str):
+            source = file_bytes_or_path
+        elif isinstance(file_bytes_or_path, (bytes, bytearray)):
+            source = io.BytesIO(file_bytes_or_path)
+        else:
+            source = file_bytes_or_path
+
+        context = ET.iterparse(source, events=("end",))
         current_chunk = []
 
         for event, elem in context:

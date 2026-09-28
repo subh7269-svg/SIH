@@ -45,3 +45,14 @@ class DatasetResponse(DatasetBase):
 class DatasetListResponse(BaseModel):
     total: int
     datasets: List[DatasetResponse]
+
+class BatchDatasetItemError(BaseModel):
+    filename: str
+    error: str
+
+class BatchDatasetResponse(BaseModel):
+    total_files: int
+    successful_count: int
+    failed_count: int
+    datasets: List[DatasetResponse]
+    errors: List[BatchDatasetItemError] = []

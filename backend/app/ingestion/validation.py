@@ -33,19 +33,32 @@ def is_valid_ip(ip_str: str) -> bool:
 def validate_record(record: dict) -> Tuple[bool, Optional[str]]:
     """
     Validates an ingested record against required fields, syntax rules, and data integrity.
+    Separates required from optional fields and supports both transaction and wallet schemas.
     Returns (is_valid, rejection_reason).
     """
-    # 1. TXID check
+    rec_type = record.get("record_type", "TRANSACTION")
+
+    # 1. Entity / Wallet Classification Schema (e.g. wallets_classes.csv)
+    if rec_type == "WALLET":
+        addr = record.get("address")
+        if not addr or not is_valid_wallet_address(str(addr)):
+            return False, f"Missing or invalid wallet address: {addr}"
+        return True, None
+
+    # 2. Transaction Classification Schema (e.g. txs_classes.csv)
+    if rec_type == "TX_CLASS":
+        txid = record.get("txid")
+        if not txid or not is_valid_txid(str(txid)):
+            return False, f"Missing or invalid TXID: {txid}"
+        return True, None
+
+    # 3. Standard Transaction Schema
+    # Required: TXID
     txid = record.get("txid")
     if not txid or not is_valid_txid(str(txid)):
         return False, f"Missing or invalid TXID format: {txid}"
 
-    # 2. Timestamp check
-    timestamp = record.get("timestamp")
-    if not timestamp:
-        return False, "Missing timestamp"
-
-    # 3. Inputs check
+    # Wallet Addresses Validation
     inputs = record.get("input_addresses", [])
     if not isinstance(inputs, list) or len(inputs) == 0:
         return False, "At least one input address is required"
@@ -53,7 +66,6 @@ def validate_record(record: dict) -> Tuple[bool, Optional[str]]:
         if not is_valid_wallet_address(str(addr)):
             return False, f"Malformed input wallet address: {addr}"
 
-    # 4. Outputs check
     outputs = record.get("output_addresses", [])
     if not isinstance(outputs, list) or len(outputs) == 0:
         return False, "At least one output address is required"
@@ -61,39 +73,35 @@ def validate_record(record: dict) -> Tuple[bool, Optional[str]]:
         if not is_valid_wallet_address(str(addr)):
             return False, f"Malformed output wallet address: {addr}"
 
-    # 5. Amounts check
+    # Amounts check (if provided, must be numeric and non-negative)
     input_amounts = record.get("input_amounts", [])
     output_amounts = record.get("output_amounts", [])
-    if not isinstance(input_amounts, list) or not isinstance(output_amounts, list):
-        return False, "Input and output amounts must be lists"
+    if isinstance(input_amounts, list):
+        for amt in input_amounts:
+            try:
+                val = float(amt)
+                if val < 0:
+                    return False, f"Negative input amount: {val}"
+            except (ValueError, TypeError):
+                return False, f"Non-numeric input amount: {amt}"
 
-    for amt in input_amounts:
-        try:
-            val = float(amt)
-            if val < 0:
-                return False, f"Negative input amount: {val}"
-        except (ValueError, TypeError):
-            return False, f"Non-numeric input amount: {amt}"
+    if isinstance(output_amounts, list):
+        for amt in output_amounts:
+            try:
+                val = float(amt)
+                if val < 0:
+                    return False, f"Negative output amount: {val}"
+            except (ValueError, TypeError):
+                return False, f"Non-numeric output amount: {amt}"
 
-    for amt in output_amounts:
-        try:
-            val = float(amt)
-            if val < 0:
-                return False, f"Negative output amount: {val}"
-        except (ValueError, TypeError):
-            return False, f"Non-numeric output amount: {amt}"
-
-    # 6. Fee check
+    # Fee check (optional, must be non-negative if present)
     fee = record.get("fee", 0.0)
-    try:
-        if float(fee) < 0:
-            return False, f"Negative fee: {fee}"
-    except (ValueError, TypeError):
-        return False, f"Non-numeric fee: {fee}"
-
-    # 7. IP check (if provided)
-    src_ip = record.get("src_ip")
-    if src_ip and not is_valid_ip(str(src_ip)):
-        return False, f"Invalid source IP address format: {src_ip}"
+    if fee is not None:
+        try:
+            val = float(fee)
+            if val < 0:
+                return False, f"Negative fee: {fee}"
+        except (ValueError, TypeError):
+            return False, f"Non-numeric fee: {fee}"
 
     return True, None

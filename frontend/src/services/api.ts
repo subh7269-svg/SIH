@@ -46,6 +46,28 @@ export async function uploadDataset(file: File, runMl: boolean = true): Promise<
   return handleResponse(res);
 }
 
+export interface BatchUploadResult {
+  total_files: number;
+  successful_count: number;
+  failed_count: number;
+  datasets: Dataset[];
+  errors: Array<{ filename: string; error: string }>;
+}
+
+export async function uploadDatasetBatch(files: File[], runMl: boolean = true): Promise<BatchUploadResult> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('run_ml', String(runMl));
+
+  const res = await fetch(`${BASE_URL}/datasets/batch`, {
+    method: 'POST',
+    body: formData,
+  });
+  return handleResponse(res);
+}
+
 export async function deleteDataset(id: string): Promise<{ status: string }> {
   const res = await fetch(`${BASE_URL}/datasets/${id}`, {
     method: 'DELETE',
@@ -208,5 +230,63 @@ export async function resetDemo(): Promise<any> {
 // -------------------------------------------------------------
 export async function getAuditLogs(limit: number = 40): Promise<any[]> {
   const res = await fetch(`${BASE_URL}/investigations/audit-logs?limit=${limit}`);
+  return handleResponse(res);
+}
+
+// -------------------------------------------------------------
+// Correlation Engine Endpoints
+// -------------------------------------------------------------
+import { CorrelationStatus, InvestigationLeadItem, InvestigationLeadDetail } from '../types';
+
+export async function getCorrelationStatus(jobId?: string): Promise<CorrelationStatus> {
+  const url = jobId ? `${BASE_URL}/correlation/status/${jobId}` : `${BASE_URL}/correlation/status`;
+  const res = await fetch(url);
+  return handleResponse(res);
+}
+
+export async function runCorrelationPipeline(params: {
+  chunk_size?: number;
+  time_window_seconds?: number;
+  max_transactions?: number;
+  dataset_dir?: string;
+}): Promise<{ job_id: string; status: string; message: string }> {
+  const res = await fetch(`${BASE_URL}/correlation/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  return handleResponse(res);
+}
+
+export async function getCorrelationValidationReport(): Promise<any> {
+  const res = await fetch(`${BASE_URL}/correlation/validation-report`);
+  return handleResponse(res);
+}
+
+export async function getInvestigationLeads(params?: {
+  priority?: string;
+  minimum_score?: number;
+  transaction_class?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ total: number; leads: InvestigationLeadItem[] }> {
+  const query = new URLSearchParams();
+  if (params?.priority && params.priority !== 'ALL') query.append('priority', params.priority);
+  if (params?.minimum_score !== undefined) query.append('minimum_score', params.minimum_score.toString());
+  if (params?.transaction_class) query.append('transaction_class', params.transaction_class);
+  if (params?.limit) query.append('limit', params.limit.toString());
+  if (params?.offset !== undefined) query.append('offset', params.offset.toString());
+
+  const res = await fetch(`${BASE_URL}/investigations?${query.toString()}`);
+  return handleResponse(res);
+}
+
+export async function getInvestigationLeadDetail(txid: string): Promise<InvestigationLeadDetail> {
+  const res = await fetch(`${BASE_URL}/investigations/${encodeURIComponent(txid)}`);
+  return handleResponse(res);
+}
+
+export async function getTransactionGraph(txid: string, hops: number = 1): Promise<any> {
+  const res = await fetch(`${BASE_URL}/graph/${encodeURIComponent(txid)}?hops=${hops}`);
   return handleResponse(res);
 }

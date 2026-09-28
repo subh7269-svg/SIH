@@ -25,6 +25,7 @@ from backend.app.api.v1.investigations import router as investigations_router
 from backend.app.api.v1.reports import router as reports_router
 from backend.app.api.v1.demo import router as demo_router
 from backend.app.api.v1.jobs import router as jobs_router
+from backend.app.api.v1.correlation import router as correlation_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,6 +90,10 @@ app.include_router(investigations_router, prefix=api_v1)
 app.include_router(reports_router, prefix=api_v1)
 app.include_router(demo_router, prefix=api_v1)
 app.include_router(jobs_router, prefix=api_v1)
+
+# Correlation Engine Routers (mounted on /api and /api/v1)
+app.include_router(correlation_router, prefix="/api")
+app.include_router(correlation_router, prefix=api_v1)
 
 @app.get("/")
 def root():

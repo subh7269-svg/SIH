@@ -80,6 +80,23 @@ export const GraphExplorerPage: React.FC = () => {
             Visual graph exploration linking Bitcoin Wallets, Transactions, Relay IPs, ASNs, and Jurisdictions.
           </p>
         </div>
+
+        {/* Live Graph Status Badges */}
+        {graphData && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-slate-300">
+              Nodes: <strong className="text-cyber-emerald">{graphData.node_count}</strong>
+            </span>
+            <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-slate-300">
+              Edges: <strong className="text-cyber-cyan">{graphData.edge_count}</strong>
+            </span>
+            {activeFocalId && (
+              <span className="px-2.5 py-1 rounded bg-cyber-emerald/10 border border-cyber-emerald/40 text-cyber-emerald truncate max-w-[180px]">
+                Focus: {activeFocalId}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Control Strip */}
@@ -143,13 +160,31 @@ export const GraphExplorerPage: React.FC = () => {
             </select>
           </div>
 
-          {(activeFocalId || isPathMode) && (
+          {(activeFocalId || isPathMode) ? (
             <button
               onClick={handleResetToGlobal}
               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] border border-slate-700"
             >
               Reset to Global View
             </button>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <span className="text-slate-500">Try:</span>
+              <button
+                type="button"
+                onClick={() => { setActiveFocalId('1Addr10A'); setFocalInput('1Addr10A'); }}
+                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyber-cyan text-[10px]"
+              >
+                1Addr10A
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveFocalId('tx_10'); setFocalInput('tx_10'); }}
+                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-cyber-emerald text-[10px]"
+              >
+                tx_10
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -158,8 +193,9 @@ export const GraphExplorerPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           {isLoading ? (
-            <div className="cyber-card h-[600px] flex items-center justify-center text-xs text-slate-500">
-              Generating graph topology and value flow paths...
+            <div className="cyber-card h-[620px] flex flex-col items-center justify-center text-xs text-slate-400 gap-3">
+              <div className="w-8 h-8 border-2 border-cyber-emerald border-t-transparent rounded-full animate-spin" />
+              <span>Generating graph topology and value flow paths...</span>
             </div>
           ) : graphData ? (
             <CytoscapeGraph
