@@ -287,6 +287,6 @@ export async function getInvestigationLeadDetail(txid: string): Promise<Investig
 }
 
 export async function getTransactionGraph(txid: string, hops: number = 1): Promise<any> {
-  const res = await fetch(`${BASE_URL}/graph/${encodeURIComponent(txid)}?hops=${hops}`);
+  const res = await fetch(`${BASE_URL}/graph/entity/${encodeURIComponent(txid)}?k=${hops}`);
   return handleResponse(res);
 }

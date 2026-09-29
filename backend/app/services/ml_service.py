@@ -1,4 +1,5 @@
 import time
+import gc
 import uuid
 import os
 import numpy as np
@@ -64,11 +65,17 @@ def train_and_evaluate_pipeline(
     logger.info(f"[ML_SERVICE] {model_type} trained: {int(binary_preds.sum())} anomalies detected out of {len(binary_preds)}")
 
     # 3. Fit Baseline Model for Comparison (Local Outlier Factor)
-    logger.info(f"[ML_SERVICE] Step 3/6: Training LOF baseline for comparison...")
-    baseline_detector = AnomalyDetector(model_type="LOCAL_OUTLIER_FACTOR", contamination=contamination)
-    baseline_detector.fit(df_features)
-    baseline_scores, baseline_preds = baseline_detector.predict_anomaly_scores(df_features)
-    logger.info(f"[ML_SERVICE] LOF baseline: {int(baseline_preds.sum())} anomalies detected")
+    # LOF stores the full training set internally — skip for large datasets to save memory
+    if len(df_features) <= 5000:
+        logger.info(f"[ML_SERVICE] Step 3/6: Training LOF baseline for comparison...")
+        baseline_detector = AnomalyDetector(model_type="LOCAL_OUTLIER_FACTOR", contamination=contamination)
+        baseline_detector.fit(df_features)
+        baseline_scores, baseline_preds = baseline_detector.predict_anomaly_scores(df_features)
+        logger.info(f"[ML_SERVICE] LOF baseline: {int(baseline_preds.sum())} anomalies detected")
+    else:
+        logger.info(f"[ML_SERVICE] Step 3/6: SKIPPED LOF baseline — dataset too large ({len(df_features)} entities, threshold=5000)")
+        baseline_scores = anomaly_scores.copy()
+        baseline_preds = binary_preds.copy()
 
     train_duration_ms = int((time.time() - start_time) * 1000)
 
@@ -96,6 +103,8 @@ def train_and_evaluate_pipeline(
         "roc_auc": baseline_eval["roc_auc"],
         "pr_auc": baseline_eval["pr_auc"]
     }
+    del baseline_scores, baseline_preds, baseline_eval
+    gc.collect()
 
     # Persist ML Model Artifact record in DB
     model_obj = MLModelArtifact(
@@ -115,6 +124,8 @@ def train_and_evaluate_pipeline(
     db.add(model_obj)
     db.commit()
     logger.info(f"[ML_SERVICE] Model artifact saved: id={model_obj.id}, path={artifact_path}")
+    del detector
+    gc.collect()
 
     # 4. DBSCAN Clustering
     logger.info(f"[ML_SERVICE] Step 4/6: Running DBSCAN clustering...")
@@ -140,6 +151,10 @@ def train_and_evaluate_pipeline(
         db.add(c_obj)
     db.commit()
     logger.info(f"[ML_SERVICE] Clusters persisted to DB")
+    del clusterer
+    cluster_count = len(clusters_meta)
+    del clusters_meta
+    gc.collect()
 
     # 4.5 Derive and persist historical behavioural baselines from raw dataset observations (No leakage)
     if dataset_id:
@@ -227,15 +242,19 @@ def train_and_evaluate_pipeline(
             db.add(alert_obj)
             alerts_generated += 1
 
+            # Periodic commit to release ORM session memory on large datasets
+            if alerts_generated % 200 == 0:
+                db.commit()
+
     db.commit()
-    logger.info(f"[ML_SERVICE] ✓ ML Pipeline COMPLETED: {len(df_features)} entities evaluated, {alerts_generated} alerts generated, {len(clusters_meta)} clusters")
+    logger.info(f"[ML_SERVICE] ✓ ML Pipeline COMPLETED: {len(df_features)} entities evaluated, {alerts_generated} alerts generated, {cluster_count} clusters")
 
     return {
         "status": "COMPLETED",
         "model_id": model_obj.id,
         "model_type": model_type,
         "entity_count": len(df_features),
-        "cluster_count": len(clusters_meta),
+        "cluster_count": cluster_count,
         "alerts_generated": alerts_generated,
         "evaluation_metrics": eval_metrics
     }

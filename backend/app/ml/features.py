@@ -1,4 +1,5 @@
 import math
+import gc
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
@@ -22,36 +23,35 @@ def extract_wallet_features_from_db(db: Session, dataset_id: str = None) -> Tupl
     Extracts 20+ behavioral, graph, and network features for every observed wallet.
     Returns (DataFrame of features indexed by wallet address, list of feature names).
     """
-    # 1. Fetch transactions, inputs, outputs, and IP observations
-    tx_query = db.query(Transaction)
+    # 1. Fetch lightweight column tuples instead of full ORM objects (~10-50x less memory)
+    tx_ts_query = db.query(Transaction.txid, Transaction.timestamp)
     if dataset_id:
-        tx_query = tx_query.filter(Transaction.dataset_id == dataset_id)
-    txs = tx_query.all()
-    tx_map = {t.id: t for t in txs}
-    tx_txid_map = {t.txid: t for t in txs}
-    tx_ids = list(tx_map.keys())
+        tx_ts_query = tx_ts_query.filter(Transaction.dataset_id == dataset_id)
+    tx_timestamp_map: Dict[str, Any] = {txid: ts for txid, ts in tx_ts_query.all()}
 
-    if not tx_ids:
+    if not tx_timestamp_map:
         return pd.DataFrame(), []
 
+    # Load inputs/outputs as (txid, wallet_address, amount) tuples
+    inp_query = db.query(TransactionInput.txid, TransactionInput.wallet_address, TransactionInput.amount)
+    out_query = db.query(TransactionOutput.txid, TransactionOutput.wallet_address, TransactionOutput.amount)
     if dataset_id:
-        inputs = db.query(TransactionInput).join(Transaction, TransactionInput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id).all()
-        outputs = db.query(TransactionOutput).join(Transaction, TransactionOutput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id).all()
-    else:
-        inputs = db.query(TransactionInput).all()
-        outputs = db.query(TransactionOutput).all()
+        inp_query = inp_query.join(Transaction, TransactionInput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id)
+        out_query = out_query.join(Transaction, TransactionOutput.transaction_id == Transaction.id).filter(Transaction.dataset_id == dataset_id)
+    inputs_tuples = inp_query.all()
+    outputs_tuples = out_query.all()
 
-    ip_obs_query = db.query(IPObservation)
+    # Load IP observations as (txid, src_ip, country, asn) tuples
+    ip_obs_query = db.query(IPObservation.txid, IPObservation.src_ip, IPObservation.country, IPObservation.asn)
     if dataset_id:
         ip_obs_query = ip_obs_query.filter(IPObservation.dataset_id == dataset_id)
-    ip_obs = ip_obs_query.all()
+    ip_obs_tuples = ip_obs_query.all()
 
-    # Map txid to IP observations
-    tx_ip_map: Dict[str, List[IPObservation]] = {}
-    for ipo in ip_obs:
-        if ipo.txid not in tx_ip_map:
-            tx_ip_map[ipo.txid] = []
-        tx_ip_map[ipo.txid].append(ipo)
+    # Map txid to IP observation tuples
+    tx_ip_map: Dict[str, List[tuple]] = {}
+    for row in ip_obs_tuples:
+        tx_ip_map.setdefault(row[0], []).append(row)
+    del ip_obs_tuples
 
     # Aggregate wallet data
     wallets_data: Dict[str, Dict[str, Any]] = {}
@@ -74,54 +74,53 @@ def extract_wallet_features_from_db(db: Session, dataset_id: str = None) -> Tupl
     # Map inputs: Wallet -> sending to tx
     # Counterparties will be the outputs of the same tx
     tx_outputs_map: Dict[str, List[str]] = {}
-    for out in outputs:
-        if out.txid not in tx_outputs_map:
-            tx_outputs_map[out.txid] = []
-        tx_outputs_map[out.txid].append(out.wallet_address)
+    for txid, wallet_address, _amt in outputs_tuples:
+        tx_outputs_map.setdefault(txid, []).append(wallet_address)
 
     tx_inputs_map: Dict[str, List[str]] = {}
-    for inp in inputs:
-        if inp.txid not in tx_inputs_map:
-            tx_inputs_map[inp.txid] = []
-        tx_inputs_map[inp.txid].append(inp.wallet_address)
+    for txid, wallet_address, _amt in inputs_tuples:
+        tx_inputs_map.setdefault(txid, []).append(wallet_address)
 
-    for inp in inputs:
-        w = get_or_create(inp.wallet_address)
-        w["out_txs"].append(inp.txid)
-        w["out_amounts"].append(inp.amount)
-        if inp.txid in tx_txid_map:
-            ts = tx_txid_map[inp.txid].timestamp
+    for txid, wallet_address, amount in inputs_tuples:
+        w = get_or_create(wallet_address)
+        w["out_txs"].append(txid)
+        w["out_amounts"].append(amount)
+        ts = tx_timestamp_map.get(txid)
+        if ts:
             w["timestamps"].append(ts)
         # Counterparties are outputs of this transaction
-        for peer in tx_outputs_map.get(inp.txid, []):
-            if peer != inp.wallet_address:
+        for peer in tx_outputs_map.get(txid, []):
+            if peer != wallet_address:
                 w["counterparties"].add(peer)
-        # Network observations
-        for ipo in tx_ip_map.get(inp.txid, []):
-            w["observed_ips"].add(ipo.src_ip)
-            if ipo.country and ipo.country != "UNKNOWN":
-                w["observed_countries"].append(ipo.country)
-            if ipo.asn and ipo.asn != "UNKNOWN":
-                w["observed_asns"].append(ipo.asn)
+        # Network observations  (tuple: txid, src_ip, country, asn)
+        for ipo in tx_ip_map.get(txid, []):
+            w["observed_ips"].add(ipo[1])
+            if ipo[2] and ipo[2] != "UNKNOWN":
+                w["observed_countries"].append(ipo[2])
+            if ipo[3] and ipo[3] != "UNKNOWN":
+                w["observed_asns"].append(ipo[3])
+    del inputs_tuples
 
-    for out in outputs:
-        w = get_or_create(out.wallet_address)
-        w["in_txs"].append(out.txid)
-        w["in_amounts"].append(out.amount)
-        if out.txid in tx_txid_map:
-            ts = tx_txid_map[out.txid].timestamp
+    for txid, wallet_address, amount in outputs_tuples:
+        w = get_or_create(wallet_address)
+        w["in_txs"].append(txid)
+        w["in_amounts"].append(amount)
+        ts = tx_timestamp_map.get(txid)
+        if ts:
             w["timestamps"].append(ts)
         # Counterparties are inputs of this transaction
-        for peer in tx_inputs_map.get(out.txid, []):
-            if peer != out.wallet_address:
+        for peer in tx_inputs_map.get(txid, []):
+            if peer != wallet_address:
                 w["counterparties"].add(peer)
-        # Network observations
-        for ipo in tx_ip_map.get(out.txid, []):
-            w["observed_ips"].add(ipo.src_ip)
-            if ipo.country and ipo.country != "UNKNOWN":
-                w["observed_countries"].append(ipo.country)
-            if ipo.asn and ipo.asn != "UNKNOWN":
-                w["observed_asns"].append(ipo.asn)
+        # Network observations  (tuple: txid, src_ip, country, asn)
+        for ipo in tx_ip_map.get(txid, []):
+            w["observed_ips"].add(ipo[1])
+            if ipo[2] and ipo[2] != "UNKNOWN":
+                w["observed_countries"].append(ipo[2])
+            if ipo[3] and ipo[3] != "UNKNOWN":
+                w["observed_asns"].append(ipo[3])
+    del outputs_tuples, tx_ip_map, tx_outputs_map, tx_inputs_map, tx_timestamp_map
+    gc.collect()
 
     # Compute Feature Vectors
     feature_rows = []

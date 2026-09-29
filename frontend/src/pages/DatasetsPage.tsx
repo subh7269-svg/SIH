@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
@@ -31,6 +31,44 @@ export const DatasetsPage: React.FC = () => {
     queryFn: getDatasets,
     refetchInterval: 3_000,
   });
+
+  // Keep fileStatuses and selectedDataset synchronized with polled datasetsData
+  useEffect(() => {
+    if (!datasetsData?.datasets || datasetsData.datasets.length === 0) return;
+
+    setFileStatuses(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const ds of datasetsData.datasets) {
+        if (next[ds.filename]) {
+          const currentStatus = next[ds.filename].status;
+          if (
+            (ds.status === 'COMPLETED' || ds.status === 'FAILED') &&
+            currentStatus !== ds.status
+          ) {
+            next[ds.filename] = {
+              status: ds.status as any,
+              error: ds.error_summary,
+              dataset: ds,
+            };
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    // Also update selectedDataset if it has updated in the background
+    setSelectedDataset(prev => {
+      if (!prev) return prev;
+      const updated = datasetsData.datasets.find(d => d.id === prev.id);
+      if (updated && (updated.status !== prev.status || updated.processed_records !== prev.processed_records)) {
+        return updated;
+      }
+      return prev;
+    });
+  }, [datasetsData]);
 
   const deleteMutation = useMutation({
     mutationFn: deleteDataset,

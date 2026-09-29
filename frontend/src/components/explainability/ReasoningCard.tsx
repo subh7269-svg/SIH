@@ -44,9 +44,9 @@ export const ReasoningCard: React.FC<ReasoningCardProps> = ({
 }) => {
   const [isWhyValidatedOpen, setIsWhyValidatedOpen] = useState(true);
 
-  const displayRawAnomaly = rawAnomalyScore !== undefined ? rawAnomalyScore : anomalyScore;
-  const displayValScore = validationScore !== undefined ? validationScore : anomalyScore;
-  const displayConfidence = confidence !== undefined ? `${Math.round(confidence * 100)}%` : '85%';
+  const displayRawAnomaly = rawAnomalyScore ?? anomalyScore ?? 0;
+  const displayValScore = validationScore ?? anomalyScore ?? 0;
+  const displayConfidence = confidence != null ? `${Math.round(confidence * 100)}%` : '85%';
 
   const hasHistoricalBaseline = historicalContext?.has_sufficient_history === true;
 

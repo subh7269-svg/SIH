@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import timezone
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -86,10 +86,10 @@ def get_entity_dossier(db: Session, entity_id: str) -> EntityDossierSchema:
         for i in range(0, len(txids), BATCH_SIZE):
             sub_batch = txids[i : i + BATCH_SIZE]
             tx_records.extend(db.query(Transaction).filter(Transaction.txid.in_(sub_batch)).all())
-        tx_records.sort(key=lambda t: t.timestamp if t.timestamp else datetime.min, reverse=True)
+        tx_records.sort(key=lambda t: t.timestamp if t.timestamp else datetime.min.replace(tzinfo=timezone.utc), reverse=True)
         recent_txs = [{
             "txid": t.txid,
-            "timestamp": t.timestamp.isoformat(),
+            "timestamp": t.timestamp.isoformat() if t.timestamp else None,
             "input_total": t.input_total,
             "output_total": t.output_total,
             "fee": t.fee,

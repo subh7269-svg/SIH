@@ -37,7 +37,7 @@ class AnomalyDetector:
                 n_estimators=100,
                 contamination=self.contamination,
                 random_state=self.random_state,
-                n_jobs=-1
+                n_jobs=1  # single-threaded to prevent memory multiplication across cores
             )
             self.model.fit(X_scaled)
 
