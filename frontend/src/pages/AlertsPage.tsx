@@ -16,11 +16,13 @@ import {
   ChevronUp,
   Scale,
   TrendingUp,
-  Info
+  Info,
+  RotateCcw
 } from 'lucide-react';
 import { getAlerts, updateAlertStatus } from '../services/api';
 import { Badge } from '../components/common/Badge';
 import { Alert } from '../types';
+import { InvestigationReplayModal } from '../components/replay/InvestigationReplayModal';
 
 export const AlertsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -30,6 +32,7 @@ export const AlertsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [selectedAlertForTriage, setSelectedAlertForTriage] = useState<Alert | null>(null);
   const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null);
+  const [replayAlertId, setReplayAlertId] = useState<string | null>(null);
   const [triageStatus, setTriageStatus] = useState<string>('REVIEWING');
   const [triageNote, setTriageNote] = useState<string>('');
 
@@ -208,6 +211,15 @@ export const AlertsPage: React.FC = () => {
                         </td>
                         <td className="py-3.5 pr-2 text-right">
                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => setReplayAlertId(alert.id)}
+                              className="px-2 py-1 rounded text-[11px] font-mono border border-cyber-cyan/40 bg-cyber-cyan/10 hover:bg-cyber-cyan/20 text-cyber-cyan transition-colors flex items-center gap-1 font-semibold"
+                              title="Open Chronological Investigation Replay"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Replay</span>
+                            </button>
                             <button
                               type="button"
                               onClick={() => setExpandedAlertId(isExpanded ? null : alert.id)}
@@ -478,6 +490,13 @@ export const AlertsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Investigation Replay Modal */}
+      <InvestigationReplayModal
+        alertId={replayAlertId}
+        isOpen={Boolean(replayAlertId)}
+        onClose={() => setReplayAlertId(null)}
+      />
     </div>
   );
 };

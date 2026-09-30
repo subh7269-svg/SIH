@@ -398,6 +398,15 @@ def build_and_store_profiles_for_dataset(
             tx_ips_map[ipo.txid] = []
         tx_ips_map[ipo.txid].append(ipo)
 
+    # Pre-index inputs and outputs by txid for O(1) counterparty lookups
+    tx_outputs_map: Dict[str, List[str]] = {}
+    for o in outputs:
+        tx_outputs_map.setdefault(o.txid, []).append(o.wallet_address)
+
+    tx_inputs_map: Dict[str, List[str]] = {}
+    for i in inputs:
+        tx_inputs_map.setdefault(i.txid, []).append(i.wallet_address)
+
     # Group records per wallet chronologically
     wallet_events: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -412,7 +421,7 @@ def build_and_store_profiles_for_dataset(
                 "timestamp": tx_obj.timestamp,
                 "in_amounts": [inp.amount],
                 "out_amounts": [],
-                "counterparties": [o.wallet_address for o in outputs if o.txid == inp.txid and o.wallet_address != addr],
+                "counterparties": [w for w in tx_outputs_map.get(inp.txid, []) if w != addr],
                 "ips": [ipo.src_ip for ipo in tx_ips_map.get(inp.txid, [])],
                 "ports": [ipo.src_port for ipo in tx_ips_map.get(inp.txid, []) if ipo.src_port],
                 "asns": [ipo.asn for ipo in tx_ips_map.get(inp.txid, []) if ipo.asn and ipo.asn != "UNKNOWN"],
@@ -430,7 +439,7 @@ def build_and_store_profiles_for_dataset(
                 "timestamp": tx_obj.timestamp,
                 "in_amounts": [],
                 "out_amounts": [out.amount],
-                "counterparties": [i.wallet_address for i in inputs if i.txid == out.txid and i.wallet_address != addr],
+                "counterparties": [w for w in tx_inputs_map.get(out.txid, []) if w != addr],
                 "ips": [ipo.src_ip for ipo in tx_ips_map.get(out.txid, [])],
                 "ports": [ipo.src_port for ipo in tx_ips_map.get(out.txid, []) if ipo.src_port],
                 "asns": [ipo.asn for ipo in tx_ips_map.get(out.txid, []) if ipo.asn and ipo.asn != "UNKNOWN"],
@@ -485,6 +494,9 @@ def build_and_store_profiles_for_dataset(
         )
         db.add(prof_obj)
         stored_profiles[addr] = prof_obj
+
+        if len(stored_profiles) % 1000 == 0:
+            db.commit()
 
     db.commit()
     logger.info(f"Learned behavioural profiles for {len(stored_profiles)} entities in dataset.")

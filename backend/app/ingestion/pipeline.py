@@ -200,30 +200,33 @@ def process_dataset_stream(
                 dq_analyzer.record_valid(norm)
                 chunk_valid += 1
 
-                # Create transaction model
+                # Create transaction parameters
                 tx_id = str(uuid.uuid4())
-                tx_obj = Transaction(
-                    id=tx_id,
-                    dataset_id=dataset_id,
-                    txid=txid,
-                    timestamp=norm["timestamp"],
-                    fee=norm["fee"],
-                    script_type=norm["script_type"],
-                    input_total=norm["input_total"],
-                    output_total=norm["output_total"]
-                )
-                tx_batch.append(tx_obj)
+                tx_batch.append({
+                    "id": tx_id,
+                    "dataset_id": dataset_id,
+                    "txid": txid,
+                    "timestamp": norm["timestamp"],
+                    "fee": norm["fee"],
+                    "script_type": norm["script_type"],
+                    "input_total": norm["input_total"],
+                    "output_total": norm["output_total"],
+                    "created_at": datetime.now(timezone.utc)
+                })
 
-                # Create Inputs
-                for addr, amt in zip(norm["input_addresses"], norm["input_amounts"]):
-                    in_obj = TransactionInput(
-                        id=str(uuid.uuid4()),
-                        transaction_id=tx_id,
-                        txid=txid,
-                        wallet_address=addr,
-                        amount=amt
-                    )
-                    inputs_batch.append(in_obj)
+                # Process Inputs (Capped to top 50 by amount for graph performance while preserving tx totals)
+                in_pairs = list(zip(norm["input_addresses"], norm["input_amounts"]))
+                if len(in_pairs) > 50:
+                    in_pairs = sorted(in_pairs, key=lambda x: x[1], reverse=True)[:50]
+
+                for addr, amt in in_pairs:
+                    inputs_batch.append({
+                        "id": str(uuid.uuid4()),
+                        "transaction_id": tx_id,
+                        "txid": txid,
+                        "wallet_address": addr,
+                        "amount": amt
+                    })
 
                     if addr not in chunk_wallet_map:
                         chunk_wallet_map[addr] = {
@@ -240,16 +243,19 @@ def process_dataset_stream(
                         w["sent"] += amt
                         w["tx_count"] += 1
 
-                # Create Outputs
-                for addr, amt in zip(norm["output_addresses"], norm["output_amounts"]):
-                    out_obj = TransactionOutput(
-                        id=str(uuid.uuid4()),
-                        transaction_id=tx_id,
-                        txid=txid,
-                        wallet_address=addr,
-                        amount=amt
-                    )
-                    outputs_batch.append(out_obj)
+                # Process Outputs (Capped to top 50 by amount to prevent million-row explosion in peeling chains)
+                out_pairs = list(zip(norm["output_addresses"], norm["output_amounts"]))
+                if len(out_pairs) > 50:
+                    out_pairs = sorted(out_pairs, key=lambda x: x[1], reverse=True)[:50]
+
+                for addr, amt in out_pairs:
+                    outputs_batch.append({
+                        "id": str(uuid.uuid4()),
+                        "transaction_id": tx_id,
+                        "txid": txid,
+                        "wallet_address": addr,
+                        "amount": amt
+                    })
 
                     if addr not in chunk_wallet_map:
                         chunk_wallet_map[addr] = {
@@ -268,41 +274,63 @@ def process_dataset_stream(
 
                 # Create IP Observation if present
                 if norm.get("src_ip"):
-                    ip_obj = IPObservation(
-                        id=str(uuid.uuid4()),
-                        dataset_id=dataset_id,
-                        transaction_id=tx_id,
-                        txid=txid,
-                        timestamp=norm["timestamp"],
-                        src_ip=norm["src_ip"],
-                        dst_ip=norm.get("dst_ip"),
-                        src_port=norm.get("src_port"),
-                        dst_port=norm.get("dst_port"),
-                        country=norm.get("geo_country"),
-                        asn=norm.get("asn")
-                    )
-                    ip_obs_batch.append(ip_obj)
+                    ip_obs_batch.append({
+                        "id": str(uuid.uuid4()),
+                        "dataset_id": dataset_id,
+                        "transaction_id": tx_id,
+                        "txid": txid,
+                        "timestamp": norm["timestamp"],
+                        "src_ip": norm["src_ip"],
+                        "dst_ip": norm.get("dst_ip"),
+                        "src_port": norm.get("src_port"),
+                        "dst_port": norm.get("dst_port"),
+                        "country": norm.get("geo_country") or "UNKNOWN",
+                        "asn": norm.get("asn") or "UNKNOWN"
+                    })
 
-            # Persist transactions and relationships in safe batches of 500
-            for i in range(0, len(tx_batch), 500):
-                db.bulk_save_objects(tx_batch[i:i + 500])
-            for i in range(0, len(inputs_batch), 500):
-                db.bulk_save_objects(inputs_batch[i:i + 500])
-            for i in range(0, len(outputs_batch), 500):
-                db.bulk_save_objects(outputs_batch[i:i + 500])
-            for i in range(0, len(ip_obs_batch), 500):
-                db.bulk_save_objects(ip_obs_batch[i:i + 500])
+            # High-speed batch execution using parameterized SQL (bypasses heavy ORM overhead)
+            if tx_batch:
+                db.execute(text("""
+                    INSERT INTO transactions (id, dataset_id, txid, timestamp, fee, script_type, input_total, output_total, created_at)
+                    VALUES (:id, :dataset_id, :txid, :timestamp, :fee, :script_type, :input_total, :output_total, :created_at)
+                """), tx_batch)
 
-            # Upsert wallets in safe slices of 500
-            upsert_wallet_batch(db, chunk_wallet_map, batch_size=500)
+            if inputs_batch:
+                for i in range(0, len(inputs_batch), 1000):
+                    db.execute(text("""
+                        INSERT INTO transaction_inputs (id, transaction_id, txid, wallet_address, amount)
+                        VALUES (:id, :transaction_id, :txid, :wallet_address, :amount)
+                    """), inputs_batch[i:i + 1000])
 
-            # Commit chunk transaction and release memory
+            if outputs_batch:
+                for i in range(0, len(outputs_batch), 1000):
+                    db.execute(text("""
+                        INSERT INTO transaction_outputs (id, transaction_id, txid, wallet_address, amount)
+                        VALUES (:id, :transaction_id, :txid, :wallet_address, :amount)
+                    """), outputs_batch[i:i + 1000])
+
+            if ip_obs_batch:
+                for i in range(0, len(ip_obs_batch), 1000):
+                    db.execute(text("""
+                        INSERT INTO ip_observations (id, dataset_id, transaction_id, txid, timestamp, src_ip, dst_ip, src_port, dst_port, country, asn)
+                        VALUES (:id, :dataset_id, :transaction_id, :txid, :timestamp, :src_ip, :dst_ip, :src_port, :dst_port, :country, :asn)
+                    """), ip_obs_batch[i:i + 1000])
+
+            # Upsert wallets in safe slices of 1000
+            upsert_wallet_batch(db, chunk_wallet_map, batch_size=1000)
+
+            # Live progress feedback: update processed_records and commit so UI updates dynamically
+            dataset.total_records = dq_analyzer.total_records
+            dataset.processed_records = dq_analyzer.valid_records
+            dataset.rejected_records = dq_analyzer.rejected_records
+            dataset.status = "PROCESSING"
             db.commit()
+
             logger.info(
                 f"[PIPELINE] Chunk #{chunk_number} committed: "
                 f"txns={len(tx_batch)}, inputs={len(inputs_batch)}, outputs={len(outputs_batch)}, "
                 f"ips={len(ip_obs_batch)}, wallets={len(chunk_wallet_map)}, "
-                f"valid={chunk_valid}, rejected={chunk_rejected}"
+                f"valid_so_far={dq_analyzer.valid_records}/{dq_analyzer.total_records}"
             )
 
         # Generate Data Quality report and update Dataset

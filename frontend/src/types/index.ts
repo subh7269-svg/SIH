@@ -117,6 +117,30 @@ export interface Alert {
   updated_at: string;
 }
 
+export interface ReplayStage {
+  stage_id: string;
+  stage_name: string;
+  order: number;
+  status: string;
+  timestamp?: string;
+  summary: string;
+  data: Record<string, any>;
+}
+
+export interface InvestigationReplay {
+  replay_id: string;
+  alert_id: string;
+  entity_id: string;
+  entity_type: string;
+  priority_score: number;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: string;
+  dataset_id?: string;
+  created_at: string;
+  stages: ReplayStage[];
+  graph_data?: GraphData;
+}
+
 export interface EntitySearchResult {
   entity_id: string;
   entity_type: 'WALLET' | 'TRANSACTION' | 'IP' | 'ASN';

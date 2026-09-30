@@ -4,7 +4,9 @@ from typing import Optional
 
 from backend.app.db.session import get_db
 from backend.app.schemas.alert import AlertListResponse, AlertResponse, AlertUpdateStatus
+from backend.app.schemas.replay import InvestigationReplayResponse
 from backend.app.services.alert_service import list_alerts, get_alert_by_id, update_alert_status
+from backend.app.services.replay_service import get_investigation_replay, get_investigation_replay_by_entity
 
 router = APIRouter(prefix="/alerts", tags=["Alerts & Prioritization"])
 
@@ -35,6 +37,14 @@ def get_alerts(
         low_count=result["low_count"],
         alerts=[AlertResponse.model_validate(a) for a in result["alerts"]]
     )
+
+@router.get("/entity/{entity_id}/replay", response_model=InvestigationReplayResponse)
+def get_entity_replay(entity_id: str, db: Session = Depends(get_db)):
+    return get_investigation_replay_by_entity(db=db, entity_id=entity_id)
+
+@router.get("/{alert_id}/replay", response_model=InvestigationReplayResponse)
+def get_alert_replay(alert_id: str, db: Session = Depends(get_db)):
+    return get_investigation_replay(db=db, alert_id=alert_id)
 
 @router.get("/{alert_id}", response_model=AlertResponse)
 def get_alert(alert_id: str, db: Session = Depends(get_db)):

@@ -58,27 +58,43 @@ def find_col(row_dict: dict, *candidates: str) -> Any:
                     return v
     return None
 
-def parse_csv_stream(file_obj_or_path: Union[io.BytesIO, str, io.StringIO], chunk_size: int = 1000) -> Iterator[List[Dict[str, Any]]]:
+def parse_csv_stream(file_obj_or_path: Union[io.BytesIO, str, io.StringIO], chunk_size: int = 2000) -> Iterator[List[Dict[str, Any]]]:
     """
     Parses CSV in streaming chunks without loading the whole file into memory.
     Robust against arbitrary column naming, casing, and supports both transaction and wallet-class schemas.
+    Optimized for high-throughput streaming (O(1) column resolution, vector-friendly dictionary extraction).
     """
     try:
         for chunk in pd.read_csv(file_obj_or_path, chunksize=chunk_size, dtype=object, keep_default_na=False):
-            # Detect schema from chunk columns
-            norm_cols = {str(c).lower().replace("_", "").replace("-", "").replace(" ", "") for c in chunk.columns}
-            is_wallet_dataset = ("address" in norm_cols or "walletaddress" in norm_cols or "wallet" in norm_cols) and not any(t in norm_cols for t in ("txid", "txhash", "transactionid", "txid1"))
-            is_tx_class_dataset = any(t in norm_cols for t in ("txid", "txhash", "transactionid")) and ("class" in norm_cols or "label" in norm_cols) and not any(a in norm_cols for a in ("inputaddresses", "inputs", "inputwallets", "outputaddresses", "outputs", "outputwallets"))
+            # Pre-compute normalized column mapping once per chunk
+            col_lookup = {}
+            for col in chunk.columns:
+                norm = str(col).lower().replace("_", "").replace("-", "").replace(" ", "")
+                col_lookup[norm] = col
+
+            is_wallet_dataset = ("address" in col_lookup or "walletaddress" in col_lookup or "wallet" in col_lookup) and not any(t in col_lookup for t in ("txid", "txhash", "transactionid", "txid1"))
+            is_tx_class_dataset = any(t in col_lookup for t in ("txid", "txhash", "transactionid")) and ("class" in col_lookup or "label" in col_lookup) and not any(a in col_lookup for a in ("inputaddresses", "inputs", "inputwallets", "outputaddresses", "outputs", "outputwallets"))
+
+            # Helper for O(1) column retrieval
+            def get_val(row_dict: dict, *candidates: str) -> Any:
+                for c in candidates:
+                    norm_c = c.lower().replace("_", "").replace("-", "").replace(" ", "")
+                    orig = col_lookup.get(norm_c)
+                    if orig is not None and orig in row_dict:
+                        v = row_dict[orig]
+                        if v is not None:
+                            val_str = str(v).strip()
+                            if val_str and val_str.lower() not in ("nan", "null", "none"):
+                                return v
+                return None
 
             records = []
-            for _, row in chunk.iterrows():
-                row_dict = row.to_dict()
-
+            for row_dict in chunk.to_dict(orient="records"):
                 if is_wallet_dataset:
                     mapped = {
                         "record_type": "WALLET",
-                        "address": str(find_col(row_dict, "address", "wallet_address", "wallet") or "").strip(),
-                        "class": str(find_col(row_dict, "class", "label", "category") or "3").strip(),
+                        "address": str(get_val(row_dict, "address", "wallet_address", "wallet") or "").strip(),
+                        "class": str(get_val(row_dict, "class", "label", "category") or "3").strip(),
                     }
                     records.append(mapped)
                     continue
@@ -86,8 +102,8 @@ def parse_csv_stream(file_obj_or_path: Union[io.BytesIO, str, io.StringIO], chun
                 if is_tx_class_dataset:
                     mapped = {
                         "record_type": "TX_CLASS",
-                        "txid": str(find_col(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id") or "").strip(),
-                        "class": str(find_col(row_dict, "class", "label", "category") or "3").strip(),
+                        "txid": str(get_val(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id") or "").strip(),
+                        "class": str(get_val(row_dict, "class", "label", "category") or "3").strip(),
                     }
                     records.append(mapped)
                     continue
@@ -95,23 +111,23 @@ def parse_csv_stream(file_obj_or_path: Union[io.BytesIO, str, io.StringIO], chun
                 # Standard Transaction Record
                 mapped = {
                     "record_type": "TRANSACTION",
-                    "txid": find_col(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id", "txId1"),
-                    "timestamp": find_col(row_dict, "timestamp", "time", "block_time", "date", "datetime", "ts", "network_timestamp"),
-                    "fee": find_col(row_dict, "fee", "fees", "tx_fee") or 0.0,
-                    "script_type": find_col(row_dict, "script_type", "scripttype", "type", "script") or "P2PKH",
-                    "input_addresses": parse_list_field(find_col(row_dict, "input_addresses", "inputaddresses", "inputs", "input_wallets", "inputwallets", "src_addresses", "sender")),
-                    "output_addresses": parse_list_field(find_col(row_dict, "output_addresses", "outputaddresses", "outputs", "output_wallets", "outputwallets", "dst_addresses", "receiver")),
-                    "input_amounts": parse_list_field(find_col(row_dict, "input_amounts", "inputamounts", "in_amounts", "inamounts", "input_val")),
-                    "output_amounts": parse_list_field(find_col(row_dict, "output_amounts", "outputamounts", "out_amounts", "outamounts", "amounts", "output_val")),
-                    "src_ip": find_col(row_dict, "src_ip", "srcip", "source_ip", "ip", "peer_ip", "relay_ip"),
-                    "dst_ip": find_col(row_dict, "dst_ip", "dstip", "destination_ip"),
-                    "src_port": find_col(row_dict, "src_port", "srcport"),
-                    "dst_port": find_col(row_dict, "dst_port", "dstport"),
-                    "geo_country": find_col(row_dict, "geo_country", "geocountry", "country", "location"),
-                    "asn": find_col(row_dict, "asn", "as_number", "autonomous_system"),
-                    "wallet_classes": find_col(row_dict, "wallet_classes", "walletclasses"),
-                    "tx_class": find_col(row_dict, "tx_class", "txclass", "class", "label"),
-                    "ml_anomaly_score": find_col(row_dict, "ml_anomaly_score", "mlanomalyscore", "anomaly_score")
+                    "txid": get_val(row_dict, "txid", "tx_id", "txId", "tx_hash", "txhash", "transaction_id", "txId1"),
+                    "timestamp": get_val(row_dict, "timestamp", "time", "block_time", "date", "datetime", "ts", "network_timestamp"),
+                    "fee": get_val(row_dict, "fee", "fees", "tx_fee") or 0.0,
+                    "script_type": get_val(row_dict, "script_type", "scripttype", "type", "script") or "P2PKH",
+                    "input_addresses": parse_list_field(get_val(row_dict, "input_addresses", "inputaddresses", "inputs", "input_wallets", "inputwallets", "src_addresses", "sender")),
+                    "output_addresses": parse_list_field(get_val(row_dict, "output_addresses", "outputaddresses", "outputs", "output_wallets", "outputwallets", "dst_addresses", "receiver")),
+                    "input_amounts": parse_list_field(get_val(row_dict, "input_amounts", "inputamounts", "in_amounts", "inamounts", "input_val")),
+                    "output_amounts": parse_list_field(get_val(row_dict, "output_amounts", "outputamounts", "out_amounts", "outamounts", "amounts", "output_val")),
+                    "src_ip": get_val(row_dict, "src_ip", "srcip", "source_ip", "ip", "peer_ip", "relay_ip"),
+                    "dst_ip": get_val(row_dict, "dst_ip", "dstip", "destination_ip"),
+                    "src_port": get_val(row_dict, "src_port", "srcport"),
+                    "dst_port": get_val(row_dict, "dst_port", "dstport"),
+                    "geo_country": get_val(row_dict, "geo_country", "geocountry", "country", "location"),
+                    "asn": get_val(row_dict, "asn", "as_number", "autonomous_system"),
+                    "wallet_classes": get_val(row_dict, "wallet_classes", "walletclasses"),
+                    "tx_class": get_val(row_dict, "tx_class", "txclass", "class", "label"),
+                    "ml_anomaly_score": get_val(row_dict, "ml_anomaly_score", "mlanomalyscore", "anomaly_score")
                 }
                 records.append(mapped)
             yield records

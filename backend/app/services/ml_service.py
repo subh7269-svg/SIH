@@ -178,6 +178,7 @@ def train_and_evaluate_pipeline(
         for w in db.query(Wallet).filter(Wallet.address.in_(sub_addrs)).all():
             wallets_in_db[w.address] = w
 
+    candidates = []
     for idx, addr in enumerate(wallet_addresses):
         a_score = float(anomaly_scores[idx])
         feat_dict = df_features.loc[addr].to_dict()
@@ -190,61 +191,69 @@ def train_and_evaluate_pipeline(
             wallets_in_db[addr].risk_score = priority_score
             wallets_in_db[addr].anomaly_score = round(a_score, 4)
 
-        # Only create alert if priority score indicates investigative relevance (score >= 35) or anomalous
+        # Only consider alert if priority score indicates investigative relevance (score >= 35) or anomalous
         if priority_score >= 35 or a_score > 0.65:
-            reasons, deviation_details = explainer_engine.explain_entity(
-                addr, feat_dict, a_score, priority_score
-            )
+            candidates.append((priority_score, a_score, addr, feat_dict, severity, subscores))
 
-            # Build evidence provenance summary
-            tx_in = [ti.txid for ti in db.query(TransactionInput.txid).filter(TransactionInput.wallet_address == addr).limit(5).all()]
-            tx_out = [to.txid for to in db.query(TransactionOutput.txid).filter(TransactionOutput.wallet_address == addr).limit(5).all()]
-            related_txs = list(set(tx_in + tx_out))
+    # Sort candidates by priority score and anomaly score descending
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    # Triage top 200 highest-priority anomalous leads for deep forensic provenance
+    top_candidates = candidates[:200]
 
-            ip_obs = [ipo.src_ip for ipo in db.query(IPObservation.src_ip).filter(IPObservation.txid.in_(related_txs)).limit(5).all()]
+    for priority_score, a_score, addr, feat_dict, severity, subscores in top_candidates:
+        reasons, deviation_details = explainer_engine.explain_entity(
+            addr, feat_dict, a_score, priority_score
+        )
 
-            # Contextual Validation Layer (Entity Behaviour vs Entity's Historical Baseline)
-            val_res = contextual_validator.validate_entity_anomaly(
-                entity_id=addr,
-                current_features=feat_dict,
-                raw_anomaly_score=a_score,
-                db=db,
-                dataset_id=dataset_id
-            )
+        # Build evidence provenance summary
+        tx_in = [ti.txid for ti in db.query(TransactionInput.txid).filter(TransactionInput.wallet_address == addr).limit(5).all()]
+        tx_out = [to.txid for to in db.query(TransactionOutput.txid).filter(TransactionOutput.wallet_address == addr).limit(5).all()]
+        related_txs = list(set(tx_in + tx_out))
 
-            alert_obj = Alert(
-                id=str(uuid.uuid4()),
-                dataset_id=dataset_id,
-                entity_id=addr,
-                entity_type="WALLET",
-                anomaly_score=round(a_score, 4),  # Preserved as-is for backwards compatibility
-                raw_anomaly_score=val_res["raw_anomaly_score"],  # Preserved raw Isolation Forest score
-                validation_score=val_res["validation_score"],  # Contextual validation score
-                priority_score=priority_score,
-                severity=severity,
-                confidence=val_res["confidence"],  # Contextual confidence
-                status="NEW",
-                reasons=reasons,
-                explanation_details=deviation_details,
-                behavioural_deviation=val_res.get("behavioural_deviation"),
-                supporting_evidence=val_res["supporting_evidence"],
-                counter_evidence=val_res["counter_evidence"],
-                historical_context=val_res["historical_context"],
-                validation_explanation=val_res["validation_explanation"],
-                evidence_summary={
-                    "related_transactions": related_txs,
-                    "observed_ips": list(set(ip_obs)),
-                    "subscores": subscores,
-                    "metrics": feat_dict,
-                    "contextual_validation": val_res
-                }
-            )
-            db.add(alert_obj)
-            alerts_generated += 1
+        ip_obs = [ipo.src_ip for ipo in db.query(IPObservation.src_ip).filter(IPObservation.txid.in_(related_txs)).limit(5).all()]
 
-            # Periodic commit to release ORM session memory on large datasets
-            if alerts_generated % 200 == 0:
-                db.commit()
+        # Contextual Validation Layer (Entity Behaviour vs Entity's Historical Baseline)
+        val_res = contextual_validator.validate_entity_anomaly(
+            entity_id=addr,
+            current_features=feat_dict,
+            raw_anomaly_score=a_score,
+            db=db,
+            dataset_id=dataset_id
+        )
+
+        alert_obj = Alert(
+            id=str(uuid.uuid4()),
+            dataset_id=dataset_id,
+            entity_id=addr,
+            entity_type="WALLET",
+            anomaly_score=round(a_score, 4),  # Preserved as-is for backwards compatibility
+            raw_anomaly_score=val_res["raw_anomaly_score"],  # Preserved raw Isolation Forest score
+            validation_score=val_res["validation_score"],  # Contextual validation score
+            priority_score=priority_score,
+            severity=severity,
+            confidence=val_res["confidence"],  # Contextual confidence
+            status="NEW",
+            reasons=reasons,
+            explanation_details=deviation_details,
+            behavioural_deviation=val_res.get("behavioural_deviation"),
+            supporting_evidence=val_res["supporting_evidence"],
+            counter_evidence=val_res["counter_evidence"],
+            historical_context=val_res["historical_context"],
+            validation_explanation=val_res["validation_explanation"],
+            evidence_summary={
+                "related_transactions": related_txs,
+                "observed_ips": list(set(ip_obs)),
+                "subscores": subscores,
+                "metrics": feat_dict,
+                "contextual_validation": val_res
+            }
+        )
+        db.add(alert_obj)
+        alerts_generated += 1
+
+        # Periodic commit to release ORM session memory on large datasets
+        if alerts_generated % 50 == 0:
+            db.commit()
 
     db.commit()
     logger.info(f"[ML_SERVICE] ✓ ML Pipeline COMPLETED: {len(df_features)} entities evaluated, {alerts_generated} alerts generated, {cluster_count} clusters")

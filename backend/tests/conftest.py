@@ -1,12 +1,16 @@
+import os
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
+os.environ["TESTING"] = "1"
+
 from backend.app.db.base import Base
 from backend.app.db.session import get_db
 from backend.app.main import app
+
 
 # Shared In-Memory SQLite engine for tests with StaticPool
 engine = create_engine(

@@ -10,9 +10,11 @@ import {
   RefreshCw,
   Clock,
   Layers,
-  ArrowRight
+  ArrowRight,
+  HardDrive,
+  Zap,
 } from 'lucide-react';
-import { getDatasets, uploadDataset, deleteDataset, getDataset } from '../services/api';
+import { getDatasets, uploadDataset, deleteDataset, getDataset, ingestLocalDataset } from '../services/api';
 import { Badge } from '../components/common/Badge';
 import { Dataset } from '../types';
 
@@ -25,6 +27,10 @@ export const DatasetsPage: React.FC = () => {
   const [runMlAfter, setRunMlAfter] = useState<boolean>(true);
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'upload' | 'local'>('upload');
+  const [localFilePath, setLocalFilePath] = useState<string>('C:\\Users\\ASUS\\Documents\\DATASET\\correlation_output\\unified_correlated_dataset_part_001.csv');
+  const [isIngestingLocal, setIsIngestingLocal] = useState<boolean>(false);
+
 
   const { data: datasetsData, isLoading, refetch: refetchDatasets } = useQuery({
     queryKey: ['datasets'],
@@ -32,7 +38,7 @@ export const DatasetsPage: React.FC = () => {
     refetchInterval: 3_000,
   });
 
-  // Keep fileStatuses and selectedDataset synchronized with polled datasetsData
+  // Keep fileStatuses and selectedDataset synchronized with polled datasetsData strictly by ID
   useEffect(() => {
     if (!datasetsData?.datasets || datasetsData.datasets.length === 0) return;
 
@@ -40,17 +46,14 @@ export const DatasetsPage: React.FC = () => {
       let changed = false;
       const next = { ...prev };
 
-      for (const ds of datasetsData.datasets) {
-        if (next[ds.filename]) {
-          const currentStatus = next[ds.filename].status;
-          if (
-            (ds.status === 'COMPLETED' || ds.status === 'FAILED') &&
-            currentStatus !== ds.status
-          ) {
-            next[ds.filename] = {
-              status: ds.status as any,
-              error: ds.error_summary,
-              dataset: ds,
+      for (const [filename, fileState] of Object.entries(next)) {
+        if (fileState.dataset?.id) {
+          const matching = datasetsData.datasets.find(d => d.id === fileState.dataset!.id);
+          if (matching && matching.status !== fileState.status) {
+            next[filename] = {
+              status: matching.status as any,
+              error: matching.error_summary,
+              dataset: matching,
             };
             changed = true;
           }
@@ -205,6 +208,28 @@ export const DatasetsPage: React.FC = () => {
     }
   };
 
+  const handleLocalIngest = async (pathOverride?: string) => {
+    const targetPath = (pathOverride || localFilePath).trim();
+    if (!targetPath) {
+      setUploadError('Please provide a valid local disk file path.');
+      return;
+    }
+
+    setIsIngestingLocal(true);
+    setUploadError(null);
+
+    try {
+      const ds = await ingestLocalDataset(targetPath, runMlAfter);
+      setSelectedDataset(ds);
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      setLocalFilePath('');
+    } catch (err: any) {
+      setUploadError(err?.message || 'Local file ingestion failed.');
+    } finally {
+      setIsIngestingLocal(false);
+    }
+  };
+
   return (
     <div className="space-y-6 font-mono">
       {/* Header */}
@@ -215,12 +240,131 @@ export const DatasetsPage: React.FC = () => {
             <span>BULK DATA INGESTION & DATA QUALITY HUB</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Upload multiple files at once • CSV / JSON / XML • Chunked streaming
+            Upload multiple files at once or stream directly from local NVMe/SSD disk • CSV / JSON / XML
           </p>
         </div>
       </div>
 
+      {/* Mode Switcher: Browser Upload vs Direct Local Disk */}
+      <div className="flex items-center gap-3 border-b border-cyber-border/80 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('upload')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-semibold border-b-2 transition-all ${
+            activeTab === 'upload'
+              ? 'border-cyber-emerald text-cyber-emerald bg-cyber-emerald/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Upload className="w-4 h-4" />
+          <span>Browser Multi-File Upload</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('local')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-xs font-semibold border-b-2 transition-all ${
+            activeTab === 'local'
+              ? 'border-cyber-cyan text-cyber-cyan bg-cyber-cyan/10'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <HardDrive className="w-4 h-4" />
+          <span>Direct Local Disk Ingestion (Instant 0-Upload)</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/30">Recommended for &gt;100MB</span>
+        </button>
+      </div>
+
+      {/* Direct Local Disk Ingestion Box */}
+      {activeTab === 'local' && (
+        <div className="cyber-card p-6 border border-cyber-cyan/40 bg-slate-900/60 space-y-4">
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-cyber-cyan" />
+                <span>Direct Local Disk Streaming Ingestion</span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Bypasses browser multipart HTTP upload entirely. Streams raw Bitcoin transaction &amp; network data directly from your local drive at native speed (~2 GB/s).
+              </p>
+            </div>
+            <span className="px-2 py-1 rounded text-[10px] font-mono bg-cyber-emerald/10 text-cyber-emerald border border-cyber-emerald/30">
+              FASTEST FOR 650MB+ FILES
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-300">Local Absolute File Path (.csv, .json, .xml):</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={localFilePath}
+                onChange={(e) => setLocalFilePath(e.target.value)}
+                placeholder="C:\Users\ASUS\Documents\DATASET\correlation_output\unified_correlated_dataset_part_001.csv"
+                className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyber-cyan"
+                disabled={isIngestingLocal}
+              />
+              <button
+                type="button"
+                onClick={() => handleLocalIngest()}
+                disabled={isIngestingLocal || !localFilePath.trim()}
+                className="px-5 py-2 rounded-lg bg-cyber-cyan text-slate-950 font-bold text-xs hover:bg-cyan-300 transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
+              >
+                {isIngestingLocal ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Ingesting from Disk...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Start Direct Disk Ingestion</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            <span className="text-slate-400 text-[11px]">Quick Preset:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const path = 'C:\\Users\\ASUS\\Documents\\DATASET\\correlation_output\\unified_correlated_dataset_part_001.csv';
+                setLocalFilePath(path);
+                handleLocalIngest(path);
+              }}
+              disabled={isIngestingLocal}
+              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyber-cyan border border-cyber-cyan/30 text-[11px] flex items-center gap-1.5 transition-colors"
+            >
+              <Zap className="w-3 h-3" />
+              <span>Ingest unified_correlated_dataset_part_001.csv (658 MB)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+            <input
+              type="checkbox"
+              id="run-ml-local"
+              checked={runMlAfter}
+              onChange={(e) => setRunMlAfter(e.target.checked)}
+              disabled={isIngestingLocal}
+              className="rounded bg-slate-900 border-slate-700 text-cyber-emerald focus:ring-0"
+            />
+            <label htmlFor="run-ml-local">Automatically run Isolation Forest ML &amp; Clustering after ingestion</label>
+          </div>
+
+          {uploadError && (
+            <div className="text-xs text-red-400 bg-red-500/10 px-3 py-2 rounded border border-red-500/20 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{uploadError}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Upload Box */}
+      {activeTab === 'upload' && (
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -376,6 +520,7 @@ export const DatasetsPage: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* Main Grid: Dataset List & Data Quality Report */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -423,18 +568,57 @@ export const DatasetsPage: React.FC = () => {
                     >
                       <td className="py-3 pl-2 font-medium text-slate-100 flex items-center gap-2">
                         <FileText className="w-3.5 h-3.5 text-cyber-cyan" />
-                        <span>{ds.filename}</span>
+                        <span className="truncate max-w-[170px]" title={ds.filename}>{ds.filename}</span>
                       </td>
                       <td className="py-3 uppercase text-slate-400">{ds.format}</td>
                       <td className="py-3">
-                        <span className="text-cyber-emerald font-bold">{ds.processed_records}</span>
-                        <span className="text-slate-500"> / {ds.total_records}</span>
+                        {ds.status === 'PROCESSING' ? (
+                          <div className="flex flex-col gap-1 w-44">
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-cyber-emerald font-bold">
+                                {ds.processed_records.toLocaleString()} valid
+                              </span>
+                              <span className="text-slate-400 font-mono">
+                                {ds.total_records > 0
+                                  ? `${Math.round((ds.processed_records / ds.total_records) * 100)}%`
+                                  : 'streaming...'}
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-cyber-emerald h-1.5 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${ds.total_records > 0 ? Math.min(100, Math.round((ds.processed_records / ds.total_records) * 100)) : 20}%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-slate-500 font-mono">
+                              of {ds.total_records.toLocaleString()} rows evaluated
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1">
+                              <span className="text-cyber-emerald font-bold">{ds.processed_records.toLocaleString()}</span>
+                              <span className="text-slate-400 text-[11px]">valid</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {ds.total_records.toLocaleString()} rows total
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3">
                         <div className="flex flex-col gap-0.5">
-                          <Badge variant={ds.status === 'COMPLETED' ? 'success' : ds.status === 'FAILED' ? 'critical' : 'info'}>
-                            {ds.status}
-                          </Badge>
+                          {ds.status === 'PROCESSING' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyber-cyan border border-cyber-cyan/30 animate-pulse w-fit">
+                              <RefreshCw className="w-3 h-3 animate-spin" /> INGESTING
+                            </span>
+                          ) : (
+                            <Badge variant={ds.status === 'COMPLETED' ? 'success' : ds.status === 'FAILED' ? 'critical' : 'info'}>
+                              {ds.status}
+                            </Badge>
+                          )}
                           {ds.status === 'FAILED' && ds.error_summary && (
                             <span className="text-[10px] text-red-400 max-w-[150px] truncate" title={ds.error_summary}>
                               {ds.error_summary}

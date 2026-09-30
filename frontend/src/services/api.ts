@@ -8,6 +8,7 @@ import {
   EntityCluster,
   InvestigationReport,
   User,
+  InvestigationReplay,
 } from '../types';
 
 const BASE_URL = '/api/v1';
@@ -45,6 +46,16 @@ export async function uploadDataset(file: File, runMl: boolean = true): Promise<
   });
   return handleResponse(res);
 }
+
+export async function ingestLocalDataset(filePath: string, runMl: boolean = true): Promise<Dataset> {
+  const res = await fetch(`${BASE_URL}/datasets/local`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_path: filePath, run_ml: runMl }),
+  });
+  return handleResponse(res);
+}
+
 
 export interface BatchUploadResult {
   total_files: number;
@@ -119,6 +130,16 @@ export async function updateAlertStatus(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, note, assigned_to }),
   });
+  return handleResponse(res);
+}
+
+export async function getInvestigationReplay(alertId: string): Promise<InvestigationReplay> {
+  const res = await fetch(`${BASE_URL}/alerts/${alertId}/replay`);
+  return handleResponse(res);
+}
+
+export async function getEntityInvestigationReplay(entityId: string): Promise<InvestigationReplay> {
+  const res = await fetch(`${BASE_URL}/alerts/entity/${encodeURIComponent(entityId)}/replay`);
   return handleResponse(res);
 }
 

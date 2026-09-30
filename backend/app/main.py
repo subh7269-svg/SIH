@@ -12,6 +12,18 @@ from backend.app.db.base import Base
 from backend.app.db.session import engine
 import backend.app.models  # Ensure all SQLAlchemy models are registered
 
+# Ensure Starlette MultiPartParser supports multi-gigabyte forensic file uploads without 400 Bad Request
+import starlette.formparsers
+try:
+    if hasattr(starlette.formparsers.MultiPartParser, "__init__") and hasattr(starlette.formparsers.MultiPartParser.__init__, "__kwdefaults__"):
+        kw = starlette.formparsers.MultiPartParser.__init__.__kwdefaults__
+        if kw:
+            kw["max_part_size"] = 1024 * 1024 * 1024  # 1 GB
+            kw["max_files"] = 5000
+            kw["max_fields"] = 5000
+except Exception as e:
+    logger.warning(f"Could not adjust MultiPartParser kwdefaults: {e}")
+
 # Import routers
 from backend.app.api.v1.health import router as health_router
 from backend.app.api.v1.auth import router as auth_router

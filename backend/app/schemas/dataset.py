@@ -56,3 +56,8 @@ class BatchDatasetResponse(BaseModel):
     failed_count: int
     datasets: List[DatasetResponse]
     errors: List[BatchDatasetItemError] = []
+
+class LocalDatasetRequest(BaseModel):
+    file_path: str
+    run_ml: bool = True
+

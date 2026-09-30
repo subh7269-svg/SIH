@@ -14,7 +14,8 @@ import {
   Boxes,
   ShieldAlert,
   ArrowUpRight,
-  ExternalLink
+  ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import { getEntityDossier, getEntityGraph, generateReport } from '../services/api';
 import { RiskGauge } from '../components/common/RiskGauge';
@@ -22,6 +23,7 @@ import { Badge } from '../components/common/Badge';
 import { ReasoningCard } from '../components/explainability/ReasoningCard';
 import { FeatureDeviationChart } from '../components/explainability/FeatureDeviationChart';
 import { CytoscapeGraph } from '../components/graph/CytoscapeGraph';
+import { InvestigationReplayModal } from '../components/replay/InvestigationReplayModal';
 
 export const EntityDetailPage: React.FC = () => {
   const { entityId } = useParams<{ entityId: string }>();
@@ -29,6 +31,7 @@ export const EntityDetailPage: React.FC = () => {
   const decodedId = decodeURIComponent(entityId || '');
   const [activeTab, setActiveTab] = useState<'overview' | 'graph' | 'ledger' | 'network'>('overview');
   const [reportSuccess, setReportSuccess] = useState<string | null>(null);
+  const [showReplayModal, setShowReplayModal] = useState<boolean>(false);
 
   const { data: dossier, isLoading: dossierLoading } = useQuery({
     queryKey: ['entity-dossier', decodedId],
@@ -105,6 +108,14 @@ export const EntityDetailPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowReplayModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/40 text-cyber-cyan font-bold text-xs shadow-glow-cyan transition-all"
+            title="Open Investigation Replay"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Investigation Replay</span>
+          </button>
           <button
             onClick={handleGenerateReport}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-bold text-xs shadow-glow-emerald transition-all"
@@ -294,6 +305,13 @@ export const EntityDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Investigation Replay Modal */}
+      <InvestigationReplayModal
+        entityId={decodedId}
+        isOpen={showReplayModal}
+        onClose={() => setShowReplayModal(false)}
+      />
     </div>
   );
 };
