@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     username: str
     email: str
     password: str
-    full_name: Optional[str] = "TraceX Analyst"
+    full_name: Optional[str] = "LeadForge Analyst"
     role: Optional[str] = "INVESTIGATOR"
 
 class UserResponse(BaseModel):

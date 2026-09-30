@@ -1,10 +1,10 @@
-# TraceX Offline & Docker Deployment
+# LeadForge Offline & Docker Deployment
 
 ---
 
 ## 1. Local Zero-Setup Mode
 
-TraceX can run directly on any machine with Python 3.10+ and Node.js 18+:
+LeadForge can run directly on any machine with Python 3.10+ and Node.js 18+:
 
 ```bash
 # 1. Install Backend Dependencies

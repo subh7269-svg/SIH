@@ -1,4 +1,4 @@
-# TraceX Security, Privacy & Compliance Architecture
+# LeadForge Security, Privacy & Compliance Architecture
 
 ---
 

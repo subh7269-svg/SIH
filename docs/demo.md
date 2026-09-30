@@ -1,4 +1,4 @@
-# TraceX SIH 2026 5-Minute Demonstration Script
+# LeadForge SIH 2026 5-Minute Demonstration Script
 
 This script outlines the exact 5-minute judge walkthrough sequence for Problem Statement SIH26146:
 
@@ -6,13 +6,13 @@ This script outlines the exact 5-minute judge walkthrough sequence for Problem S
 
 ## Step 1: Platform Overview & Forensic Principle (30 Seconds)
 - Open `http://localhost:5173`.
-- Explain: *"TraceX is an offline-capable investigative platform that correlates network-layer P2P broadcast observations with blockchain-layer transactions to generate prioritized, mathematically explainable investigative leads. It does NOT assert definitive wallet ownership from IP observations."*
+- Explain: *"LeadForge is an offline-capable investigative platform that correlates network-layer P2P broadcast observations with blockchain-layer transactions to generate prioritized, mathematically explainable investigative leads. It does NOT assert definitive wallet ownership from IP observations."*
 
 ---
 
 ## Step 2: Trigger 1-Click SIH Demo (20 Seconds)
 - Click the glowing **"Run 1-Click SIH Demo"** button in the top navigation bar.
-- TraceX will reset, generate the synthetic benchmark scenario, stream ingest CSV, parse network observations, build the entity graph, extract 20+ features, train Isolation Forest vs LOF, run DBSCAN clustering, and rank alerts in under 10 seconds.
+- LeadForge will reset, generate the synthetic benchmark scenario, stream ingest CSV, parse network observations, build the entity graph, extract 20+ features, train Isolation Forest vs LOF, run DBSCAN clustering, and rank alerts in under 10 seconds.
 
 ---
 

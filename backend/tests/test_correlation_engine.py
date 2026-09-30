@@ -1,4 +1,4 @@
-# Unit and Integration Test Suite for TraceX Correlation Engine
+# Unit and Integration Test Suite for LeadForge Correlation Engine
 import pytest
 import os
 import pandas as pd

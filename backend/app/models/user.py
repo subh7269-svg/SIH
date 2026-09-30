@@ -11,7 +11,7 @@ class User(Base):
     email = Column(String(120), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="INVESTIGATOR")  # INVESTIGATOR, ADMIN
-    full_name = Column(String(100), default="TraceX Analyst")
-    badge_number = Column(String(50), default="TX-8821")
+    full_name = Column(String(100), default="LeadForge Analyst")
+    badge_number = Column(String(50), default="LF-8821")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

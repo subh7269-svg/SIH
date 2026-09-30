@@ -104,8 +104,8 @@ export const InvestigationReplayModal: React.FC<InvestigationReplayModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6 overflow-y-auto">
-      <div className="cyber-card w-full max-w-5xl my-auto border border-cyber-borderLight shadow-2xl flex flex-col max-h-[92vh] overflow-hidden rounded-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto pointer-events-none">
+      <div className="cyber-card w-full max-w-5xl my-auto border border-cyber-borderLight shadow-2xl flex flex-col max-h-[92vh] overflow-hidden rounded-xl pointer-events-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-cyber-border bg-slate-950/90 shrink-0">
           <div className="flex items-center gap-3">

@@ -1,5 +1,5 @@
 """
-REST API Router for TraceX Transaction-Wallet-Network Correlation Engine.
+REST API Router for LeadForge Transaction-Wallet-Network Correlation Engine.
 Endpoints for async job execution, status monitoring, transaction inspection,
 investigation lead prioritization, and heterogeneous graph exploration.
 """

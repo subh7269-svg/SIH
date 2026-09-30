@@ -15,7 +15,7 @@ import {
   Radio,
   FileText
 } from 'lucide-react';
-import { getAlerts, getDatasets, getModels, getClusters } from '../services/api';
+import { getAlerts, getDatasets, getModels, getClusters, getTemporalVolume } from '../services/api';
 import { StatCard } from '../components/common/StatCard';
 import { Badge } from '../components/common/Badge';
 import { RiskGauge } from '../components/common/RiskGauge';
@@ -54,6 +54,11 @@ export const DashboardPage: React.FC = () => {
     queryFn: () => getClusters(),
   });
 
+  const { data: temporalData } = useQuery({
+    queryKey: ['temporal-volume'],
+    queryFn: getTemporalVolume,
+  });
+
   const activeDataset = datasetsData?.datasets?.[0];
   const dq = activeDataset?.data_quality_metrics;
 
@@ -71,15 +76,18 @@ export const DashboardPage: React.FC = () => {
     { name: 'Low', value: alertsData?.low_count || 0, color: '#10B981' },
   ].filter((d) => d.value > 0);
 
-  // Activity Mock Timeline Data
-  const activityData = [
-    { time: '00:00', volume: 2.4, alerts: 1 },
-    { time: '04:00', volume: 1.8, alerts: 0 },
-    { time: '08:00', volume: 8.5, alerts: 3 },
-    { time: '12:00', volume: 14.2, alerts: 5 },
-    { time: '16:00', volume: 10.1, alerts: 2 },
-    { time: '20:00', volume: 5.6, alerts: 1 },
-  ];
+  // Real activity data from backend — show only hours that have activity,
+  // sampled to a max of 12 ticks on the X axis for readability.
+  const hasTemporalData = temporalData?.has_data ?? false;
+  const activityData = hasTemporalData
+    ? (temporalData!.hourly_data
+        .filter((_, i) => i % 2 === 0) // Show every 2h for clean axis
+        .map((d) => ({
+          time: d.time,
+          volume: d.volume > 0 ? d.volume : d.tx_count,
+          alerts: d.alerts,
+        })))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -162,32 +170,46 @@ export const DashboardPage: React.FC = () => {
                 Observed Volume & Anomaly Bursts
               </h2>
             </div>
-            <span className="text-xs font-mono text-slate-500">UTC Temporal Distribution</span>
+            <span className="text-xs font-mono text-slate-500">
+              {hasTemporalData
+                ? `${temporalData!.total_transactions.toLocaleString()} TXs · ${temporalData!.total_volume_btc.toFixed(4)} BTC`
+                : 'UTC Temporal Distribution'}
+            </span>
           </div>
 
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="time" stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} />
-                <YAxis stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0F172A',
-                    borderColor: '#334155',
-                    borderRadius: '8px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: '11px',
-                  }}
-                />
-                <Area type="monotone" dataKey="volume" stroke="#06B6D4" strokeWidth={2} fillOpacity={1} fill="url(#colorVol)" name="Volume (BTC)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {!hasTemporalData ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 gap-3">
+                <Activity className="w-10 h-10 text-slate-700" />
+                <p className="text-xs font-mono text-center">
+                  No transaction data ingested yet.<br />
+                  Upload a dataset or run the 1-Click Demo to see real temporal activity.
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={activityData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorVol" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} />
+                  <YAxis stroke="#64748B" tick={{ fill: '#94A3B8', fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0F172A',
+                      borderColor: '#334155',
+                      borderRadius: '8px',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: '11px',
+                    }}
+                  />
+                  <Area type="monotone" dataKey="volume" stroke="#06B6D4" strokeWidth={2} fillOpacity={1} fill="url(#colorVol)" name="Volume (BTC)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 

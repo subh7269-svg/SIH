@@ -1,23 +1,23 @@
-# TraceX: Transaction?Wallet?Network Correlation Engine
+# LeadForge: Transaction?Wallet?Network Correlation Engine
 ### Smart India Hackathon 2026 ? Problem Statement SIH26146
 #### Industry-Ready Offline Cryptocurrency Forensic Analysis Platform
 
 > **IMPORTANT FORENSIC & ETHICAL NOTICE**:  
-> TraceX is an investigative analytics and anomaly-prioritization platform. It generates:  
+> LeadForge is an investigative analytics and anomaly-prioritization platform. It generates:  
 > **"Potential anomaly / investigation lead requiring human verification"**  
-> TraceX does **NOT** claim that any wallet, transaction, or individual is criminal. Furthermore, network observations are reported as:  
+> LeadForge does **NOT** claim that any wallet, transaction, or individual is criminal. Furthermore, network observations are reported as:  
 > **"network observation temporally correlated with transaction"** rather than claiming *"IP belongs to wallet."*
 
 ---
 
 ## 1. Executive Summary & Engine Objective
 
-The **TraceX Correlation Engine** bridges the critical visibility gap between blockchain-layer transactions and network-layer wire observations. In modern cryptocurrency forensics, sophisticated entities obscure fund flows across peeling chains and mixers. By synthesizing:
+The **LeadForge Correlation Engine** bridges the critical visibility gap between blockchain-layer transactions and network-layer wire observations. In modern cryptocurrency forensics, sophisticated entities obscure fund flows across peeling chains and mixers. By synthesizing:
 1. **Blockchain Transactions** (`txs_features.csv`, `txs_classes.csv`),
 2. **Entity & Wallet Graphs** (`wallets_features.csv`, `wallets_classes.csv`, `AddrTx_edgelist.csv`, `TxAddr_edgelist.csv`), and
 3. **P2P Wire Broadcast Metadata** (`network_data.csv`),
 
-TraceX extracts multi-dimensional behavioral, graph, and network features, computes unsupervised Isolation Forest anomaly scores, and generates transparent, explainable investigation leads (0?100) with concrete evidence justifications for law enforcement and forensic investigators.
+LeadForge extracts multi-dimensional behavioral, graph, and network features, computes unsupervised Isolation Forest anomaly scores, and generates transparent, explainable investigation leads (0?100) with concrete evidence justifications for law enforcement and forensic investigators.
 
 ---
 
@@ -40,7 +40,7 @@ The platform is designed to ingest the **Elliptic++** dataset and related P2P ca
 ## 3. How Transaction Data Is Processed
 
 ### Chunked Streaming & Dynamic Column Detection
-`txs_features.csv` is ~662.6 MB and cannot be loaded entirely into RAM on evaluation laptops. TraceX implements streaming generators:
+`txs_features.csv` is ~662.6 MB and cannot be loaded entirely into RAM on evaluation laptops. LeadForge implements streaming generators:
 ```python
 pd.read_csv(file, chunksize=50000, low_memory=False)
 ```
@@ -61,7 +61,7 @@ The `WalletCorrelator` builds fast in-memory hash indices from:
 - `TxAddr_edgelist.csv`: Maps `txId` $	o$ `output_address`
 - `txs_classes.csv` & `wallets_classes.csv`: Maps identifiers to labels (`illicit`, `licit`, `unknown`)
 
-For every transaction, TraceX:
+For every transaction, LeadForge:
 1. Gathers all input addresses and output addresses (merging inline CSV columns and edgelists).
 2. Deduplicates all addresses to eliminate double counting.
 3. Retrieves known entity classification tags.
@@ -73,11 +73,11 @@ For every transaction, TraceX:
 
 The `NetworkCorrelator` maps blockchain activity to physical network wire broadcasts (`network_data.csv`):
 1. **Tier 1: Exact TXID Match**:
-   - If `txid` is present in the network packet capture, TraceX performs an $O(1)$ hash map lookup.
+   - If `txid` is present in the network packet capture, LeadForge performs an $O(1)$ hash map lookup.
    - Exact match establishes `network_confidence = 1.0` and `correlation_method = "exact_txid"`.
 2. **Tier 2: Temporal Proximity Window (When TXID Is Not in Packet)**:
    - When Bitcoin nodes relay unconfirmed transactions, intermediate routers or network sensors capture traffic without application-layer TXIDs.
-   - TraceX stores sorted network observation epochs and executes an $O(\log N)$ binary search (`bisect_left`/`bisect_right`) within $\pm 120$ seconds (`CORRELATION_TIME_WINDOW_SECONDS`).
+   - LeadForge stores sorted network observation epochs and executes an $O(\log N)$ binary search (`bisect_left`/`bisect_right`) within $\pm 120$ seconds (`CORRELATION_TIME_WINDOW_SECONDS`).
    - Identifies the temporally closest observation.
 3. **Forensic Integrity**: Never assumes IP ownership of a private key. Outputs:  
    `"network observation temporally correlated with transaction"`.
@@ -99,7 +99,8 @@ $$\Delta t = |t_{	ext{tx}} - t_{	ext{net}}|$$
 ## 7. How Confidence Is Calculated
 
 Confidence decays linearly with temporal distance within the observation window $W$ ($120$s default):
-$$	ext{Confidence} = \max\left(0.0,\, 1.0 - rac{\Delta t}{W}ight)$$
+$$	ext{Confidence} = \max\left(0.0,\, 1.0 - rac{\Delta t}{W}
+ight)$$
 
 - At $\Delta t = 0	ext{s}$: $	ext{Confidence} = 1.0$ (Peak correlation)
 - At $\Delta t = 30	ext{s}$: $	ext{Confidence} = 1.0 - rac{30}{120} = 0.75$
@@ -110,7 +111,7 @@ $$	ext{Confidence} = \max\left(0.0,\, 1.0 - rac{\Delta t}{W}ight)$$
 
 ## 8. How Investigation Scores Work & Explainability
 
-TraceX implements an **Explainable Investigation Lead Prioritization Score** ($0$?$100$):
+LeadForge implements an **Explainable Investigation Lead Prioritization Score** ($0$?$100$):
 > The system **never** outputs only `Risk = 78`. It outputs explicit evidence justifications.
 
 ### Transparent Evidence Weights (Configurable in `config.py`):

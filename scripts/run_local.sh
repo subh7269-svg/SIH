@@ -2,7 +2,7 @@
 set -e
 
 echo "==================================================================="
-echo "Starting TraceX - Bitcoin Investigation & Risk Intelligence Platform"
+echo "Starting LeadForge - Bitcoin Investigation & Risk Intelligence Platform"
 echo "Problem Statement: SIH26146 (Smart India Hackathon 2026)"
 echo "Mode: 100% Offline-Ready"
 echo "==================================================================="

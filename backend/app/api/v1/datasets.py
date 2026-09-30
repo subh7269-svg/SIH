@@ -15,6 +15,7 @@ from backend.app.services.ml_service import train_and_evaluate_pipeline
 from backend.app.services.graph_service import invalidate_graph_cache
 from backend.app.services.audit_service import log_audit_event
 from backend.app.core.logging import logger
+from backend.app.core.errors import EntityNotFoundError
 from backend.app.models.dataset import Dataset
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -404,7 +405,10 @@ def reprocess_dataset(dataset_id: str, db: Session = Depends(get_db)):
 @router.delete("/{dataset_id}")
 def remove_dataset(dataset_id: str, db: Session = Depends(get_db)):
     logger.info(f"[DATASETS_API] DELETE /datasets/{dataset_id}")
-    delete_dataset(db=db, dataset_id=dataset_id)
+    try:
+        delete_dataset(db=db, dataset_id=dataset_id)
+    except EntityNotFoundError:
+        logger.info(f"[DATASETS_API] Dataset {dataset_id} already deleted or not found")
     invalidate_graph_cache(dataset_id)
     logger.info(f"[DATASETS_API] ✓ Deleted dataset={dataset_id}")
     return {"status": "DELETED", "dataset_id": dataset_id}

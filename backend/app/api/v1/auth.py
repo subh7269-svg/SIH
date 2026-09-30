@@ -15,17 +15,17 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
     
     # Auto-seed default investigator if not present
     if not user and login_data.username in ("investigator", "admin"):
-        default_pw = "tracex2026"
-        if login_data.password == default_pw:
+        valid_demo_passwords = ("leadforge2026", "tracex2026")
+        if login_data.password in valid_demo_passwords:
             role = "ADMIN" if login_data.username == "admin" else "INVESTIGATOR"
             user = User(
                 id=str(uuid.uuid4()),
                 username=login_data.username,
-                email=f"{login_data.username}@tracex.local",
-                hashed_password=get_password_hash(default_pw),
+                email=f"{login_data.username}@leadforge.local",
+                hashed_password=get_password_hash("leadforge2026"),
                 role=role,
                 full_name="Lead Cyber Investigator" if role == "INVESTIGATOR" else "System Administrator",
-                badge_number="TX-9041"
+                badge_number="LF-9041"
             )
             db.add(user)
             db.commit()
@@ -34,7 +34,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password. (Default demo: investigator / tracex2026)"
+            detail="Incorrect username or password. (Default demo: investigator / leadforge2026)"
         )
 
     token = create_access_token(subject=user.username, role=user.role)
@@ -52,11 +52,11 @@ def get_current_user_profile(db: Session = Depends(get_db)):
         user = User(
             id=str(uuid.uuid4()),
             username="investigator",
-            email="investigator@tracex.local",
-            hashed_password=get_password_hash("tracex2026"),
+            email="investigator@leadforge.local",
+            hashed_password=get_password_hash("leadforge2026"),
             role="INVESTIGATOR",
             full_name="Lead Cyber Investigator",
-            badge_number="TX-9041"
+            badge_number="LF-9041"
         )
         db.add(user)
         db.commit()

@@ -1,4 +1,4 @@
-# TraceX Machine Learning & Risk Prioritization Methodology
+# LeadForge Machine Learning & Risk Prioritization Methodology
 
 ---
 
@@ -17,7 +17,7 @@ Where $c(n)$ is the average path length of unsuccessful search in a Binary Searc
 $$c(n) = 2\ln(n - 1) + 0.5772156649 - \frac{2(n - 1)}{n}$$
 
 ### Baseline Comparison: Local Outlier Factor (LOF)
-To ensure rigorous validation without assuming model superiority, TraceX benchmarks Isolation Forest against Local Outlier Factor (LOF). LOF measures the local density deviation of a given entity with respect to its $k=20$ nearest neighbors:
+To ensure rigorous validation without assuming model superiority, LeadForge benchmarks Isolation Forest against Local Outlier Factor (LOF). LOF measures the local density deviation of a given entity with respect to its $k=20$ nearest neighbors:
 
 $$\text{LOF}_k(p) = \frac{\sum_{o \in N_k(p)} \frac{\text{lrd}_k(o)}{\text{lrd}_k(p)}}{|N_k(p)|}$$
 
@@ -36,7 +36,7 @@ $$\text{LOF}_k(p) = \frac{\sum_{o \in N_k(p)} \frac{\text{lrd}_k(o)}{\text{lrd}_
 
 ## 3. Deterministic Investigation Priority Score (0–100)
 
-TraceX strictly distinguishes the raw ML statistical anomaly score from the **Investigation Priority Score**:
+LeadForge strictly distinguishes the raw ML statistical anomaly score from the **Investigation Priority Score**:
 
 $$\text{Priority Score} = \text{clamp}\Big( 0.40 \cdot S_{\text{ML}} + 0.20 \cdot S_{\text{Velocity}} + 0.15 \cdot S_{\text{Counterparties}} + 0.15 \cdot S_{\text{Network}} + 0.10 \cdot S_{\text{Graph}}, 0, 100 \Big)$$
 
@@ -44,7 +44,7 @@ $$\text{Priority Score} = \text{clamp}\Big( 0.40 \cdot S_{\text{ML}} + 0.20 \cdo
 
 ## 4. Mathematical Explainability
 
-For every generated alert, TraceX computes the $z$-score deviation against population medians:
+For every generated alert, LeadForge computes the $z$-score deviation against population medians:
 
 $$z_i = \frac{x_i - \mu_i}{\sigma_i}$$
 

@@ -1,7 +1,7 @@
-# TraceX System Architecture & Engineering Design
+# LeadForge System Architecture & Engineering Design
 ## Smart India Hackathon 2026 (Problem Statement SIH26146)
 
-TraceX is built as a **modular monolith** optimized for high-throughput metadata ingestion, complex graph traversal, statistical anomaly detection, and offline forensic intelligence.
+LeadForge is built as a **modular monolith** optimized for high-throughput metadata ingestion, complex graph traversal, statistical anomaly detection, and offline forensic intelligence.
 
 ---
 

@@ -9,7 +9,7 @@ router = APIRouter(tags=["Health"])
 def health_check():
     return {
         "status": "healthy",
-        "service": "TraceX Bitcoin Investigation Platform",
+        "service": "LeadForge Bitcoin Investigation Platform",
         "version": "1.0.0",
         "mode": "offline-ready"
     }

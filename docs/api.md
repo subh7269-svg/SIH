@@ -1,4 +1,4 @@
-# TraceX REST API Documentation (OpenAPI v3)
+# LeadForge REST API Documentation (OpenAPI v3)
 
 All endpoints are versioned under `/api/v1` and accessible via Swagger UI at `/docs`.
 

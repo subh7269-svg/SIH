@@ -33,7 +33,7 @@ from backend.app.ml.model_loader import get_model_paths
 logger = logging.getLogger("tracex.correlation.engine")
 
 class CorrelationEngine:
-    """Master orchestrator for TraceX correlation pipeline."""
+    """Master orchestrator for LeadForge correlation pipeline."""
     def __init__(self, dataset_dir: Optional[Path] = None, output_dir: Optional[Path] = None):
         self.dataset_dir = dataset_dir
         self.output_dir = output_dir or correlation_settings.OUTPUT_DIR

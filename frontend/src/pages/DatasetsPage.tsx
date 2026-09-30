@@ -13,6 +13,8 @@ import {
   ArrowRight,
   HardDrive,
   Zap,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { getDatasets, uploadDataset, deleteDataset, getDataset, ingestLocalDataset } from '../services/api';
 import { Badge } from '../components/common/Badge';
@@ -30,6 +32,9 @@ export const DatasetsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'local'>('upload');
   const [localFilePath, setLocalFilePath] = useState<string>('C:\\Users\\ASUS\\Documents\\DATASET\\correlation_output\\unified_correlated_dataset_part_001.csv');
   const [isIngestingLocal, setIsIngestingLocal] = useState<boolean>(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [datasetToDelete, setDatasetToDelete] = useState<Dataset | null>(null);
 
 
   const { data: datasetsData, isLoading, refetch: refetchDatasets } = useQuery({
@@ -74,10 +79,26 @@ export const DatasetsPage: React.FC = () => {
   }, [datasetsData]);
 
   const deleteMutation = useMutation({
-    mutationFn: deleteDataset,
+    mutationFn: async (id: string) => {
+      setDeletingId(id);
+      setDeleteError(null);
+      return await deleteDataset(id);
+    },
     onSuccess: () => {
+      setDeletingId(null);
+      setDeleteError(null);
+      setDatasetToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['clusters'] });
+      queryClient.invalidateQueries({ queryKey: ['models'] });
+      queryClient.invalidateQueries({ queryKey: ['temporal-volume'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
       setSelectedDataset(null);
+    },
+    onError: (err: any) => {
+      setDeletingId(null);
+      setDeleteError(err?.message || 'Failed to delete dataset.');
     },
   });
 
@@ -540,6 +561,14 @@ export const DatasetsPage: React.FC = () => {
             </button>
           </div>
 
+          {deleteError && (
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-950/40 border border-red-500/30 text-xs text-red-300">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="flex-1">{deleteError}</span>
+              <button onClick={() => setDeleteError(null)} className="text-slate-400 hover:text-white text-xs px-1">✕</button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
@@ -633,9 +662,10 @@ export const DatasetsPage: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteMutation.mutate(ds.id);
+                            setDeleteError(null);
+                            setDatasetToDelete(ds);
                           }}
-                          className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                           title="Delete Dataset"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -752,6 +782,119 @@ export const DatasetsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Professional In-App Confirmation Modal Container */}
+      {datasetToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+          onClick={() => {
+            if (!deleteMutation.isPending) {
+              setDatasetToDelete(null);
+            }
+          }}
+        >
+          <div
+            className="cyber-card w-full max-w-md border border-red-500/30 bg-slate-900/95 shadow-2xl rounded-xl p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+                    Delete Ingested Dataset
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    This action is permanent and cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDatasetToDelete(null)}
+                disabled={deleteMutation.isPending}
+                className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Target Dataset Details */}
+            <div className="p-3 rounded-lg bg-slate-950/70 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyber-cyan shrink-0" />
+                <span className="text-xs font-mono font-medium text-slate-200 truncate" title={datasetToDelete.filename}>
+                  {datasetToDelete.filename}
+                </span>
+                <span className="ml-auto text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                  {datasetToDelete.format}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Valid Records</span>
+                  <span className="text-cyber-emerald font-mono font-semibold">
+                    {datasetToDelete.processed_records?.toLocaleString() ?? 0}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Total Records</span>
+                  <span className="text-slate-300 font-mono">
+                    {datasetToDelete.total_records?.toLocaleString() ?? 0}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-red-400/90 pt-2 border-t border-slate-800/80 leading-relaxed">
+                Purging this dataset will delete all associated transactions, wallet inputs/outputs, network observations, investigative alerts, and behavioural profiles.
+              </p>
+            </div>
+
+            {/* Error if delete failed */}
+            {deleteError && (
+              <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span className="flex-1">{deleteError}</span>
+              </div>
+            )}
+
+            {/* Action Buttons: Cancel and OK */}
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setDatasetToDelete(null)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(datasetToDelete.id)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center gap-2 shadow-lg shadow-red-900/30 transition-all disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting Dataset...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>OK, Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

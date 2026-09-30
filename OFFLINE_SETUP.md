@@ -1,16 +1,16 @@
-# TraceX: Offline Environment Preparation & Air-Gapped Deployment Guide
+# LeadForge: Offline Environment Preparation & Air-Gapped Deployment Guide
 ## Smart India Hackathon 2026 (Problem Statement SIH26146)
 
-TraceX is engineered with a strict **100% Offline-First Architecture**. During operation, the platform requires **zero internet access, zero cloud LLM APIs, zero external GeoIP queries, and zero remote blockchain RPC connections**.
+LeadForge is engineered with a strict **100% Offline-First Architecture**. During operation, the platform requires **zero internet access, zero cloud LLM APIs, zero external GeoIP queries, and zero remote blockchain RPC connections**.
 
-This guide outlines the standard procedures for packaging, verifying, and running TraceX in air-gapped or offline Linux/Windows environments.
+This guide outlines the standard procedures for packaging, verifying, and running LeadForge in air-gapped or offline Linux/Windows environments.
 
 ---
 
 ## 1. Offline Architectural Guarantees
 
 1. **Embedded GeoIP & ASN Resolution**:
-   - TraceX includes an embedded local IP prefix routing database in `backend/app/geoip/data/offline_subnets.json` and a deterministic subnet classifier in `backend/app/geoip/offline_lookup.py`.
+   - LeadForge includes an embedded local IP prefix routing database in `backend/app/geoip/data/offline_subnets.json` and a deterministic subnet classifier in `backend/app/geoip/offline_lookup.py`.
    - All IP-to-Country and Autonomous System Number mappings execute in-memory with microsecond latency.
 
 2. **Self-Contained ML Pipelines**:
@@ -25,7 +25,7 @@ This guide outlines the standard procedures for packaging, verifying, and runnin
 
 ## 2. Preparing Offline Packages (Online Machine)
 
-To export TraceX for an air-gapped / offline testing machine:
+To export LeadForge for an air-gapped / offline testing machine:
 
 ### A. Pre-downloading Python Wheels
 ```bash
@@ -88,7 +88,7 @@ docker save -o tracex_offline_images.tar tracex-platform:latest postgres:16-alpi
 
 To guarantee zero external leakage:
 1. Disconnect network interfaces or enable Airplane Mode.
-2. Open TraceX in browser: `http://localhost:5173`.
+2. Open LeadForge in browser: `http://localhost:5173`.
 3. Click **"Run 1-Click SIH Demo"** in the top navigation bar.
 4. Verify:
    - Ingestion and validation completes in < 2 seconds.

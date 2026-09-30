@@ -1,4 +1,4 @@
-# TraceX Relational & Graph Data Models
+# LeadForge Relational & Graph Data Models
 
 ---
 

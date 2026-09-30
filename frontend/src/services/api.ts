@@ -311,3 +311,25 @@ export async function getTransactionGraph(txid: string, hops: number = 1): Promi
   const res = await fetch(`${BASE_URL}/graph/entity/${encodeURIComponent(txid)}?k=${hops}`);
   return handleResponse(res);
 }
+
+// -------------------------------------------------------------
+// Dashboard Statistics
+// -------------------------------------------------------------
+export interface TemporalVolumeData {
+  hourly_data: Array<{
+    time: string;
+    hour: number;
+    tx_count: number;
+    volume: number;
+    alerts: number;
+  }>;
+  total_transactions: number;
+  total_volume_btc: number;
+  total_alerts: number;
+  has_data: boolean;
+}
+
+export async function getTemporalVolume(): Promise<TemporalVolumeData> {
+  const res = await fetch(`${BASE_URL}/stats/temporal-volume`);
+  return handleResponse(res);
+}

@@ -38,20 +38,21 @@ from backend.app.api.v1.reports import router as reports_router
 from backend.app.api.v1.demo import router as demo_router
 from backend.app.api.v1.jobs import router as jobs_router
 from backend.app.api.v1.correlation import router as correlation_router
+from backend.app.api.v1.stats import router as stats_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables if not exist
     Base.metadata.create_all(bind=engine)
-    logger.info("TraceX Backend Initialized. Database tables verified.")
+    logger.info("LeadForge Backend Initialized. Database tables verified.")
     yield
-    logger.info("TraceX Backend Shutting Down.")
+    logger.info("LeadForge Backend Shutting Down.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=(
-        "TraceX: AI-Powered Bitcoin Transaction Investigation & Risk Intelligence Platform. "
+        "LeadForge: AI-Powered Bitcoin Transaction Investigation & Risk Intelligence Platform. "
         "Offline-compatible system correlating network P2P metadata with blockchain transactions, "
         "extracting behavioral features, training Isolation Forest anomaly detectors, and generating explainable alerts."
     ),
@@ -102,6 +103,7 @@ app.include_router(investigations_router, prefix=api_v1)
 app.include_router(reports_router, prefix=api_v1)
 app.include_router(demo_router, prefix=api_v1)
 app.include_router(jobs_router, prefix=api_v1)
+app.include_router(stats_router, prefix=api_v1)
 
 # Correlation Engine Routers (mounted on /api and /api/v1)
 app.include_router(correlation_router, prefix="/api")
@@ -110,7 +112,7 @@ app.include_router(correlation_router, prefix=api_v1)
 @app.get("/")
 def root():
     return {
-        "platform": "TraceX Bitcoin Investigation Platform",
+        "platform": "LeadForge Bitcoin Investigation Platform",
         "version": settings.VERSION,
         "docs": "/docs",
         "api_v1": api_v1,

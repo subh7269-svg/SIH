@@ -109,7 +109,7 @@ def train_and_evaluate_pipeline(
     # Persist ML Model Artifact record in DB
     model_obj = MLModelArtifact(
         id=str(uuid.uuid4()),
-        model_name=f"TraceX {model_type.replace('_', ' ').title()} Detector",
+        model_name=f"LeadForge {model_type.replace('_', ' ').title()} Detector",
         model_type=model_type,
         version="1.0.0",
         is_active=1,

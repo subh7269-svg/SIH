@@ -109,7 +109,7 @@ def run_one_click_demo(db: Session, seed: int = 42) -> Dict[str, Any]:
 
     return {
         "status": "SUCCESS",
-        "message": "TraceX 1-Click Demo Pipeline executed successfully.",
+        "message": "LeadForge 1-Click Demo Pipeline executed successfully.",
         "dataset_id": dataset.id,
         "dq_metrics": dq_metrics,
         "graph_stats": {
