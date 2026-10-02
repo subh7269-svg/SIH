@@ -11,7 +11,8 @@ import {
   InvestigationReplay,
 } from '../types';
 
-const BASE_URL = '/api/v1';
+const BASE_URL = 'https://axiom-sih-leadforge.onrender.com/api/v1';
+
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
